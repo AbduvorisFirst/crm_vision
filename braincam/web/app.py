@@ -7,12 +7,12 @@ from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from braincam.config import settings
 from braincam.db.session import get_db, init_db, async_session
-from braincam.db.models import Organization, Camera, User, CameraEvent, DailyReport, EventTypeEnum
+from braincam.db.models import Organization, Camera, User, CameraEvent, DailyReport, EventTypeEnum, Alert
 from braincam.video.rtsp_capture import RTSPCaptureService
 from braincam.video.mass_scanner import MassCameraIntegrator
 from braincam.ai.gemini_service import gemini_service
@@ -29,6 +29,9 @@ app = FastAPI(
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
+# In-memory storage for live snapshots pushed by Local Edge Agents
+LATEST_EDGE_FRAMES: Dict[int, bytes] = {}
+
 # Request schemas
 class CameraCreate(BaseModel):
     name: str
@@ -39,6 +42,13 @@ class CameraCreate(BaseModel):
 
 class LanguageUpdate(BaseModel):
     language: str # "ru" or "uz"
+    telegram_id: Optional[int] = None
+    org_id: Optional[int] = None
+
+class ChatMessageRequest(BaseModel):
+    message: str
+    language: Optional[str] = "ru"
+    store_id: Optional[int] = 1
 
 @app.on_event("startup")
 async def on_startup():
@@ -78,6 +88,7 @@ async def on_startup():
             await session.commit()
 
 @app.get("/", response_class=HTMLResponse)
+@app.get("/dashboard", response_class=HTMLResponse)
 async def get_dashboard(request: Request):
     """Renders Merchant Web Dashboard"""
     return templates.TemplateResponse(request=request, name="dashboard.html", context={})
@@ -193,9 +204,24 @@ async def create_camera(data: CameraCreate, db: AsyncSession = Depends(get_db)):
     await db.refresh(cam)
     return cam
 
+@app.delete("/api/v1/cameras/{camera_id}")
+async def delete_camera(camera_id: int, db: AsyncSession = Depends(get_db)):
+    """Deletes a camera from the database"""
+    res = await db.execute(select(Camera).where(Camera.id == camera_id))
+    cam = res.scalar_one_or_none()
+    if not cam:
+        raise HTTPException(status_code=404, detail="Camera not found")
+    await db.execute(delete(Alert).where(Alert.camera_id == camera_id))
+    await db.delete(cam)
+    await db.commit()
+    return {"status": "deleted", "id": camera_id}
+
 @app.get("/api/v1/cameras/{camera_id}/snapshot")
 async def get_camera_snapshot(camera_id: int, db: AsyncSession = Depends(get_db)):
-    """Returns single frame snapshot from camera stream"""
+    """Returns single frame snapshot from camera stream or edge agent buffer"""
+    if camera_id in LATEST_EDGE_FRAMES:
+        return Response(content=LATEST_EDGE_FRAMES[camera_id], media_type="image/jpeg")
+
     res = await db.execute(select(Camera).where(Camera.id == camera_id))
     cam = res.scalar_one_or_none()
     url = cam.rtsp_url if cam else "demo"
@@ -203,6 +229,59 @@ async def get_camera_snapshot(camera_id: int, db: AsyncSession = Depends(get_db)
 
     frame_bytes = RTSPCaptureService.get_snapshot(url)
     return Response(content=frame_bytes, media_type="image/jpeg")
+
+@app.post("/api/v1/cameras/{camera_id}/heartbeat")
+async def camera_heartbeat(camera_id: int, payload: Optional[Dict[str, Any]] = None, db: AsyncSession = Depends(get_db)):
+    """Receives heartbeat signal from Local Edge Agent"""
+    res = await db.execute(select(Camera).where(Camera.id == camera_id))
+    cam = res.scalar_one_or_none()
+    if cam:
+        cam.status = "online"
+        await db.commit()
+    return {"status": "ok", "camera_id": camera_id, "state": "online"}
+
+@app.post("/api/v1/cameras/{camera_id}/upload-frame")
+async def upload_camera_frame(camera_id: int, file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
+    """Receives live snapshot pushed from Local Edge Agent on private LAN"""
+    content = await file.read()
+    if content:
+        LATEST_EDGE_FRAMES[camera_id] = content
+        res = await db.execute(select(Camera).where(Camera.id == camera_id))
+        cam = res.scalar_one_or_none()
+        if cam and cam.status != "online":
+            cam.status = "online"
+            await db.commit()
+    return {"status": "ok", "camera_id": camera_id, "bytes_received": len(content)}
+
+@app.get("/api/v1/cameras/vendor-templates")
+async def get_vendor_templates():
+    """Returns vendor connection guides and RTSP templates for Hikvision, Dahua, Uniview, XM"""
+    return {
+        "templates": MassCameraIntegrator.VENDOR_TEMPLATES,
+        "instructions": MassCameraIntegrator.get_vendor_instructions()
+    }
+
+@app.post("/api/v1/cameras/{camera_id}/analyze")
+async def analyze_camera(camera_id: int, db: AsyncSession = Depends(get_db)):
+    """Runs instant Gemini AI analysis on camera live snapshot"""
+    res = await db.execute(select(Camera).where(Camera.id == camera_id))
+    cam = res.scalar_one_or_none()
+    url = cam.rtsp_url if cam else "demo"
+    cam_type = cam.camera_type if cam else "entrance"
+    
+    org_res = await db.execute(select(Organization).limit(1))
+    org = org_res.scalar_one_or_none()
+    lang = org.language if org else "ru"
+    
+    frame_bytes = RTSPCaptureService.get_snapshot(url)
+    analysis = await gemini_service.analyze_frame(frame_bytes, camera_type=cam_type, language=lang)
+    return {
+        "status": "success",
+        "camera_id": camera_id,
+        "camera_name": cam.name if cam else f"Camera #{camera_id}",
+        "camera_type": cam_type,
+        "analysis": analysis
+    }
 
 @app.get("/api/v1/cameras/scan-subnet")
 async def scan_subnet(subnet: str = "192.168.1"):
@@ -222,8 +301,13 @@ async def download_csv_template():
 
 @app.post("/api/v1/cameras/bulk-upload")
 async def bulk_upload_cameras(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
-    """Bulk imports cameras from CSV file"""
-    content = (await file.read()).decode("utf-8")
+    """Bulk imports cameras from CSV file with encoding autodetection"""
+    raw_bytes = await file.read()
+    try:
+        content = raw_bytes.decode("utf-8")
+    except UnicodeDecodeError:
+        content = raw_bytes.decode("cp1251", errors="replace")
+
     parsed_cameras = MassCameraIntegrator.parse_csv_cameras(content)
 
     created = []
@@ -249,12 +333,32 @@ async def get_daily_analytics(db: AsyncSession = Depends(get_db)):
 
 @app.post("/api/v1/settings/language")
 async def update_language(data: LanguageUpdate, db: AsyncSession = Depends(get_db)):
-    """Updates language preference (ru or uz) for organization and dashboard"""
-    res = await db.execute(select(Organization).limit(1))
-    org = res.scalar_one_or_none()
+    """Updates language preference (ru or uz) for organization and dashboard and user"""
+    if data.language not in ["ru", "uz"]:
+        raise HTTPException(status_code=400, detail="Language must be 'ru' or 'uz'")
+
+    # 1. Update Organization
+    org_stmt = select(Organization)
+    if data.org_id:
+        org_stmt = org_stmt.where(Organization.id == data.org_id)
+    org_res = await db.execute(org_stmt)
+    org = org_res.scalars().first()
     if org:
         org.language = data.language
-        await db.commit()
+
+    # 2. Update User(s) so future Telegram daily reports and notifications use chosen language
+    user_stmt = select(User)
+    if data.telegram_id:
+        user_stmt = user_stmt.where(User.telegram_id == data.telegram_id)
+    elif org:
+        user_stmt = user_stmt.where(User.org_id == org.id)
+
+    user_res = await db.execute(user_stmt)
+    users = user_res.scalars().all()
+    for u in users:
+        u.language = data.language
+
+    await db.commit()
     return {"status": "ok", "language": data.language}
 
 @app.post("/api/v1/reports/dispatch-telegram")
@@ -262,20 +366,22 @@ async def dispatch_telegram_report(db: AsyncSession = Depends(get_db)):
     """Forces daily KPI report dispatch to merchant's Telegram"""
     res = await db.execute(select(Organization).limit(1))
     org = res.scalar_one_or_none()
-    lang = org.language if org else "ru"
-    report = await AnalyticsService.generate_or_update_daily_report(db, org_id=1)
+    user_res = await db.execute(select(User).where(User.org_id == (org.id if org else 1)).limit(1))
+    user = user_res.scalar_one_or_none()
+
+    lang = (user.language if user else None) or (org.language if org else None) or "ru"
+    report = await AnalyticsService.generate_or_update_daily_report(db, org_id=(org.id if org else 1))
 
     # If Telegram bot is active, send it
     if settings.TELEGRAM_BOT_TOKEN and not settings.TELEGRAM_BOT_TOKEN.startswith("your_"):
         try:
             from aiogram import Bot
             bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
-            user_res = await db.execute(select(User).where(User.org_id == 1).limit(1))
-            user = user_res.scalar_one_or_none()
             if user and user.telegram_id:
-                text = NotificationService.format_daily_digest(report, store_name=org.name, language=lang)
+                store_name = user.store_name or (org.name if org else "Магазин")
+                text = NotificationService.format_daily_digest(report, store_name=store_name, language=lang)
                 await bot.send_message(chat_id=user.telegram_id, text=text, parse_mode="HTML")
-                return {"message": "Отчет отправлен в Telegram!"}
+                return {"message": f"Отчет отправлен в Telegram на языке: {lang.upper()}!"}
         except Exception as e:
             return {"message": f"Ошибка отправки Telegram: {e}"}
 
@@ -289,10 +395,63 @@ async def analyze_audio_demo(db: AsyncSession = Depends(get_db)):
     lang = org.language if org else "ru"
     return await gemini_service.analyze_audio(b"sample_audio_bytes", language=lang)
 
+@app.post("/api/v1/chat/message")
+async def chat_message(data: ChatMessageRequest, db: AsyncSession = Depends(get_db)):
+    """Conversational AI assistant for merchant inquiries and recommendations"""
+    metrics = await AnalyticsService.get_daily_metrics(db, org_id=data.store_id or 1)
+    answer = await gemini_service.answer_merchant_question(
+        question=data.message,
+        store_context=metrics,
+        language=data.language or "ru"
+    )
+    return {"reply": answer, "status": "ok"}
+
 @app.get("/health")
 async def health_check():
+    """Health status endpoint reporting status of all system components"""
+    db_status = "healthy"
+    try:
+        async with async_session() as session:
+            await session.execute(select(1))
+    except Exception as e:
+        db_status = f"unhealthy: {e}"
+
+    bot_configured = bool(settings.TELEGRAM_BOT_TOKEN and not settings.TELEGRAM_BOT_TOKEN.startswith("your_"))
+    ai_configured = bool(settings.GEMINI_API_KEY and not settings.GEMINI_API_KEY.startswith("your_"))
+    all_healthy = db_status == "healthy"
+
     return {
-        "status": "healthy",
+        "status": "healthy" if all_healthy else "degraded",
         "service": "BrainCam AI",
-        "gemini_model": settings.GEMINI_MODEL
+        "gemini_model": settings.GEMINI_MODEL,
+        "components": {
+            "database": {
+                "status": db_status,
+                "url": settings.DATABASE_URL.split("///")[-1]
+            },
+            "fastapi_web": {
+                "status": "running",
+                "host": settings.HOST,
+                "port": settings.PORT
+            },
+            "telegram_bot": {
+                "status": "configured" if bot_configured else "skipped (token unconfigured)",
+                "admin_username": settings.ADMIN_TELEGRAM_USERNAME
+            },
+            "scheduler": {
+                "status": "registered",
+                "features": ["daily_kpi_reports", "trial_reminders", "auto_expiry"]
+            },
+            "ai_vision_and_audio": {
+                "status": "ready" if ai_configured else "ready (fallback/demo mode)",
+                "primary_model": settings.GEMINI_MODEL,
+                "fallback_model": settings.GEMINI_FALLBACK_MODEL
+            },
+            "camera_integrator": {
+                "status": "ready",
+                "rtsp_capture": "active",
+                "mass_subnet_scanner": "active",
+                "csv_bulk_import": "active"
+            }
+        }
     }

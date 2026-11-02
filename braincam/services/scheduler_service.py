@@ -96,14 +96,18 @@ class BrainCamScheduler:
             users = res.scalars().all()
 
             for user in users:
-                trial_target = user.trial_ends_at.replace(tzinfo=None)
+                trial_target = (
+                    user.trial_ends_at.astimezone(timezone.utc).replace(tzinfo=None)
+                    if user.trial_ends_at.tzinfo
+                    else user.trial_ends_at.replace(tzinfo=None)
+                )
                 diff = trial_target - now
                 days_left = diff.days
 
-                # 3 Reminders in the last 3 days:
-                # Reminder 1: 3 days left
-                # Reminder 2: 2 days left
-                # Reminder 3: 1 day or hours left
+                # 3 Reminders in the last 3 days of 7-day trial (Days 5, 6, 7):
+                # Day 5 (diff.days == 2, ~3 days left): Reminder 1
+                # Day 6 (diff.days == 1, ~2 days left): Reminder 2
+                # Day 7 (diff.days == 0, < 24h left): Reminder 3
                 if days_left == 2 and user.reminders_sent < 1:
                     await cls._send_payment_reminder(bot, user, reminder_num=1, days_left=days_left)
                     user.reminders_sent = 1
@@ -122,25 +126,30 @@ class BrainCamScheduler:
     @classmethod
     async def _send_payment_reminder(cls, bot: Bot, user: User, reminder_num: int, days_left: int):
         lang = user.language or "ru"
+        time_left_uz = f"<b>{days_left} kun qoldi</b>" if days_left > 0 else "<b>24 soatdan kam vaqt qoldi (oxirgi kun!)</b>"
+        time_left_ru = f"осталось <b>{days_left} дн.</b>" if days_left > 0 else "осталось <b>менее 24 часов (последний день!)</b>"
+
         if lang == "uz":
             text = (
                 f"⚠️ <b>ESLATMA #{reminder_num}: SINOV MUDDATI TUGAMOQDA!</b>\n\n"
-                f"Sizning 7 kunlik bepul sinov davringiz tugashiga <b>{days_left} kun qoldi</b>.\n\n"
+                f"Sizning 7 kunlik bepul sinov davringiz tugashiga {time_left_uz}.\n\n"
                 f"BrainCam AI xizmatlaridan uzluksiz foydalanish va kunlik hisobotlarni olishni davom ettirish uchun to'lovni amalga oshiring:\n\n"
                 f"💳 <b>VISA karta:</b> <code>{settings.VISA_CARD_NUMBER}</code>\n"
-                f"👤 <b>Qabul qiluvchi:</b> {settings.VISA_CARD_HOLDER}\n"
+                f"👤 <b>Karta egasi:</b> {settings.VISA_CARD_HOLDER}\n"
+                f"💬 <b>Egasi (Telegram):</b> @{settings.ADMIN_TELEGRAM_USERNAME}\n"
                 f"💰 <b>Narxi:</b> {settings.SUBSCRIPTION_MONTHLY_PRICE}\n\n"
-                f"To'lov qilgach, chek rasmini to'g'ridan-to'g'ri shu botga yuboring!"
+                f"To'lov qilgach, chek rasmini to'g'ridan-to'g'ri shu botga yuboring yoki @{settings.ADMIN_TELEGRAM_USERNAME} ga murojaat qiling!"
             )
         else:
             text = (
                 f"⚠️ <b>НАПОМИНАНИЕ #{reminder_num}: ПРОБНЫЙ ПЕРИОД ЗАКАНЧИВАЕТСЯ!</b>\n\n"
-                f"До окончания вашего 7-дневного бесплатного периода осталось <b>{days_left} дн.</b>\n\n"
+                f"До окончания вашего 7-дневного бесплатного периода {time_left_ru}.\n\n"
                 f"Чтобы не потерять аналитику, контроль сотрудников и доступ к камерам, продлите подписку:\n\n"
                 f"💳 <b>Карта VISA:</b> <code>{settings.VISA_CARD_NUMBER}</code>\n"
-                f"👤 <b>Получатель:</b> {settings.VISA_CARD_HOLDER}\n"
+                f"👤 <b>Держатель карты:</b> {settings.VISA_CARD_HOLDER}\n"
+                f"💬 <b>Владелец (Telegram):</b> @{settings.ADMIN_TELEGRAM_USERNAME}\n"
                 f"💰 <b>Стоимость:</b> {settings.SUBSCRIPTION_MONTHLY_PRICE}\n\n"
-                f"После перевода отправьте скриншот/фото чека в этот чат!"
+                f"После перевода отправьте скриншот/фото чека в этот чат или напишите @{settings.ADMIN_TELEGRAM_USERNAME}!"
             )
         try:
             await bot.send_message(chat_id=user.telegram_id, text=text, parse_mode="HTML")
@@ -153,13 +162,19 @@ class BrainCamScheduler:
         msg = (
             "🔒 <b>Срок бесплатного пробного периода истек!</b>\n\n"
             f"Для возобновления работы переведите оплату на карту VISA:\n"
-            f"<code>{settings.VISA_CARD_NUMBER}</code> ({settings.VISA_CARD_HOLDER})\n"
-            "и отправьте фото чека в этот чат. Доступ будет моментально продлен!"
+            f"💳 <b>Карта VISA:</b> <code>{settings.VISA_CARD_NUMBER}</code>\n"
+            f"👤 <b>Держатель:</b> {settings.VISA_CARD_HOLDER}\n"
+            f"💬 <b>Telegram владельца:</b> @{settings.ADMIN_TELEGRAM_USERNAME}\n"
+            f"💰 <b>Стоимость:</b> {settings.SUBSCRIPTION_MONTHLY_PRICE}\n\n"
+            f"и отправьте фото чека в этот чат или напишите @{settings.ADMIN_TELEGRAM_USERNAME}. Доступ будет моментально продлен!"
         ) if lang == "ru" else (
             "🔒 <b>Bepul sinov muddati yakunlandi!</b>\n\n"
             f"Xizmatni davom ettirish uchun to'lovni VISA kartasiga o'tkazing:\n"
-            f"<code>{settings.VISA_CARD_NUMBER}</code> ({settings.VISA_CARD_HOLDER})\n"
-            "va chek rasmini shu yerga yuboring. Kirish darhol tiklanadi!"
+            f"💳 <b>VISA karta:</b> <code>{settings.VISA_CARD_NUMBER}</code>\n"
+            f"👤 <b>Karta egasi:</b> {settings.VISA_CARD_HOLDER}\n"
+            f"💬 <b>Egasi (Telegram):</b> @{settings.ADMIN_TELEGRAM_USERNAME}\n"
+            f"💰 <b>Narxi:</b> {settings.SUBSCRIPTION_MONTHLY_PRICE}\n\n"
+            f"va chek rasmini shu yerga yuboring yoki @{settings.ADMIN_TELEGRAM_USERNAME} ga yozing. Kirish darhol tiklanadi!"
         )
         try:
             await bot.send_message(chat_id=user.telegram_id, text=msg, parse_mode="HTML")

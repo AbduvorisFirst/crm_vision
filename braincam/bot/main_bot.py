@@ -20,7 +20,8 @@ from braincam.bot.keyboards import (
     get_onboarding_keyboard, get_main_keyboard, get_admin_approval_keyboard,
     get_admin_payment_keyboard, get_language_inline_keyboard,
     get_report_time_inline_keyboard, get_camera_actions_inline,
-    get_camera_guide_keyboard, get_miniapp_inline_keyboard, get_miniapp_url
+    get_camera_guide_keyboard, get_miniapp_inline_keyboard, get_miniapp_url,
+    get_settings_inline_keyboard
 )
 from braincam.ai.gemini_service import gemini_service
 from braincam.video.rtsp_capture import RTSPCaptureService
@@ -145,8 +146,9 @@ async def cmd_start(message: types.Message, state: FSMContext, bot: Bot):
                 f"🎁 <b>Для всех новых клиентов: 7 дней бесплатного тест-драйва со всеми функциями!</b>\n"
                 f"Откройте удобное Mini App прямо в смартфоне:"
             )
+        app_prompt = "👇 Ilovani ochish uchun bosing:" if lang == "uz" else "👇 Нажмите для открытия приложения:"
         await message.answer(text, parse_mode="HTML", reply_markup=get_onboarding_keyboard(lang))
-        await message.answer("👇 Нажмите для открытия приложения:", reply_markup=get_miniapp_inline_keyboard(lang))
+        await message.answer(app_prompt, reply_markup=get_miniapp_inline_keyboard(lang))
         return
 
     # 2. Waiting for Admin Approval
@@ -197,45 +199,74 @@ async def start_registration(message: types.Message, state: FSMContext):
         user, _ = await get_user_and_org(session, message.from_user)
         lang = user.language if user else "ru"
 
+    if message.text in ["📝 7 kunlik bepul sinovga ulanish", "📝 Arizani chatda to'ldirish"]:
+        lang = "uz"
+
+    await state.update_data(lang=lang)
     await state.set_state(RegistrationStates.full_name)
+    step_title = "📝 <b>1/7-qadam</b>" if lang == "uz" else "📝 <b>Шаг 1/7</b>"
     prompt = "Ism va Familiyangizni kiriting:" if lang == "uz" else "Введите ваше Имя и Фамилию (ФИО):"
-    await message.answer(f"📝 <b>Шаг 1/7</b>\n{prompt}", parse_mode="HTML", reply_markup=types.ReplyKeyboardRemove())
+    await message.answer(f"{step_title}\n{prompt}", parse_mode="HTML", reply_markup=types.ReplyKeyboardRemove())
 
 @dp.message(RegistrationStates.full_name)
 async def reg_full_name(message: types.Message, state: FSMContext):
     await state.update_data(full_name=message.text.strip())
+    data = await state.get_data()
+    lang = data.get("lang", "ru")
     await state.set_state(RegistrationStates.phone)
-    await message.answer("📝 <b>Шаг 2/7</b>\nВведите ваш контактный номер телефона (например: <code>+998901234567</code>):", parse_mode="HTML")
+    step_title = "📝 <b>2/7-qadam</b>" if lang == "uz" else "📝 <b>Шаг 2/7</b>"
+    prompt = "Bog'lanish uchun telefon raqamingizni kiriting (masalan: <code>+998901234567</code>):" if lang == "uz" else "Введите ваш контактный номер телефона (например: <code>+998901234567</code>):"
+    await message.answer(f"{step_title}\n{prompt}", parse_mode="HTML")
 
 @dp.message(RegistrationStates.phone)
 async def reg_phone(message: types.Message, state: FSMContext):
     await state.update_data(phone=message.text.strip())
+    data = await state.get_data()
+    lang = data.get("lang", "ru")
     await state.set_state(RegistrationStates.store_name)
-    await message.answer("📝 <b>Шаг 3/7</b>\nВведите название вашего магазина или заведения (например: <i>Супермаркет Baraka</i>):", parse_mode="HTML")
+    step_title = "📝 <b>3/7-qadam</b>" if lang == "uz" else "📝 <b>Шаг 3/7</b>"
+    prompt = "Do'koningiz yoki muassasangiz nomini kiriting (masalan: <i>Baraka Supermarketi</i>):" if lang == "uz" else "Введите название вашего магазина или заведения (например: <i>Супермаркет Baraka</i>):"
+    await message.answer(f"{step_title}\n{prompt}", parse_mode="HTML")
 
 @dp.message(RegistrationStates.store_name)
 async def reg_store_name(message: types.Message, state: FSMContext):
     await state.update_data(store_name=message.text.strip())
+    data = await state.get_data()
+    lang = data.get("lang", "ru")
     await state.set_state(RegistrationStates.business_category)
-    await message.answer("📝 <b>Шаг 4/7</b>\nКакая у вас сфера бизнеса? (Продукты/Супермаркет, Одежда, Кафе/Ресторан, Аптека, Электроника и т.д.):", parse_mode="HTML")
+    step_title = "📝 <b>4/7-qadam</b>" if lang == "uz" else "📝 <b>Шаг 4/7</b>"
+    prompt = "Biznesingiz qaysi sohaga tegishli? (Oziq-ovqat/Supermarket, Kiyim-kechak, Kafe/Restoran, Dorixona, Elektronika va h.k.):" if lang == "uz" else "Какая у вас сфера бизнеса? (Продукты/Супермаркет, Одежда, Кафе/Ресторан, Аптека, Электроника и т.д.):"
+    await message.answer(f"{step_title}\n{prompt}", parse_mode="HTML")
 
 @dp.message(RegistrationStates.business_category)
 async def reg_category(message: types.Message, state: FSMContext):
     await state.update_data(business_category=message.text.strip())
+    data = await state.get_data()
+    lang = data.get("lang", "ru")
     await state.set_state(RegistrationStates.city)
-    await message.answer("📝 <b>Шаг 5/7</b>\nВ каком городе и районе находится ваш магазин? (например: <i>Ташкент, Чиланзар</i>):", parse_mode="HTML")
+    step_title = "📝 <b>5/7-qadam</b>" if lang == "uz" else "📝 <b>Шаг 5/7</b>"
+    prompt = "Do'koningiz qaysi shahar va tumanda joylashgan? (masalan: <i>Toshkent, Chilonzor</i>):" if lang == "uz" else "В каком городе и районе находится ваш магазин? (например: <i>Ташкент, Чиланзар</i>):"
+    await message.answer(f"{step_title}\n{prompt}", parse_mode="HTML")
 
 @dp.message(RegistrationStates.city)
 async def reg_city(message: types.Message, state: FSMContext):
     await state.update_data(city=message.text.strip())
+    data = await state.get_data()
+    lang = data.get("lang", "ru")
     await state.set_state(RegistrationStates.instagram)
-    await message.answer("📝 <b>Шаг 6/7</b>\nУкажите <b>Instagram-аккаунт вашего бизнеса</b> (например: <code>@baraka_market</code> или ссылка):", parse_mode="HTML")
+    step_title = "📝 <b>6/7-qadam</b>" if lang == "uz" else "📝 <b>Шаг 6/7</b>"
+    prompt = "Biznesingizning <b>Instagram sahifasi</b>ni kiriting (masalan: <code>@baraka_market</code> yoki havola):" if lang == "uz" else "Укажите <b>Instagram-аккаунт вашего бизнеса</b> (например: <code>@baraka_market</code> или ссылка):"
+    await message.answer(f"{step_title}\n{prompt}", parse_mode="HTML")
 
 @dp.message(RegistrationStates.instagram)
 async def reg_instagram(message: types.Message, state: FSMContext):
     await state.update_data(instagram=message.text.strip())
+    data = await state.get_data()
+    lang = data.get("lang", "ru")
     await state.set_state(RegistrationStates.camera_count)
-    await message.answer("📝 <b>Шаг 7/7</b>\nСколько камер у вас сейчас установлено в магазине? (например: <i>2</i> или <i>4</i>):", parse_mode="HTML")
+    step_title = "📝 <b>7/7-qadam</b>" if lang == "uz" else "📝 <b>Шаг 7/7</b>"
+    prompt = "Do'koningizda hozirda nechta kamera o'rnatilgan? (masalan: <i>2</i> yoki <i>4</i>):" if lang == "uz" else "Сколько камер у вас сейчас установлено в магазине? (например: <i>2</i> или <i>4</i>):"
+    await message.answer(f"{step_title}\n{prompt}", parse_mode="HTML")
 
 @dp.message(RegistrationStates.camera_count)
 async def reg_camera_count(message: types.Message, state: FSMContext, bot: Bot):
@@ -246,22 +277,25 @@ async def reg_camera_count(message: types.Message, state: FSMContext, bot: Bot):
 
     await state.update_data(camera_count=count)
     data = await state.get_data()
+    lang = data.get("lang", "ru")
     await state.clear()
 
     # Save to database with status PENDING
     async with async_session() as session:
         user, org = await get_user_and_org(session, message.from_user)
         if not org:
-            org = Organization(name=data["store_name"], language="ru")
+            org = Organization(name=data["store_name"], language=lang)
             session.add(org)
             await session.flush()
+        else:
+            org.language = lang
 
         if not user:
             user = User(
                 org_id=org.id,
                 telegram_id=message.from_user.id,
                 username=message.from_user.username,
-                language="ru"
+                language=lang
             )
             session.add(user)
 
@@ -272,6 +306,7 @@ async def reg_camera_count(message: types.Message, state: FSMContext, bot: Bot):
         user.city = data["city"]
         user.instagram = data["instagram"]
         user.camera_count = count
+        user.language = lang
         user.status = UserStatusEnum.PENDING.value
 
         await session.commit()
@@ -279,12 +314,19 @@ async def reg_camera_count(message: types.Message, state: FSMContext, bot: Bot):
         user_db_id = user.id
 
     # 1. Inform merchant
-    await message.answer(
-        "✅ <b>Заявка успешно отправлена!</b>\n\n"
-        "Вся информация передана владельцу проекта (@abdvoris07).\n"
-        "После одобрения вам автоматически откроется доступ к личному кабинету и 7-дневному бесплатному периоду!",
-        parse_mode="HTML"
-    )
+    if lang == "uz":
+        confirm_text = (
+            "✅ <b>Arizangiz muvaffaqiyatli yuborildi!</b>\n\n"
+            f"Barcha ma'lumotlar loyiha rahbari (@{settings.ADMIN_TELEGRAM_USERNAME})ga yetkazildi.\n"
+            "Tasdiqlangandan so'ng, shaxsiy kabinet va 7 kunlik bepul sinov davri avtomatik tarzda ochiladi!"
+        )
+    else:
+        confirm_text = (
+            "✅ <b>Заявка успешно отправлена!</b>\n\n"
+            f"Вся информация передана владельцу проекта (@{settings.ADMIN_TELEGRAM_USERNAME}).\n"
+            "После одобрения вам автоматически откроется доступ к личному кабинету и 7-дневному бесплатному периоду!"
+        )
+    await message.answer(confirm_text, parse_mode="HTML")
 
     # 2. NOTIFY ADMIN (@abdvoris07)
     admin_text = (
@@ -390,41 +432,88 @@ async def admin_reject_merchant(callback: types.CallbackQuery, bot: Bot):
 
 # ================= PAYMENT & SUBSCRIPTION FLOW =================
 
-@dp.message(F.text.startswith("💳"))
+@dp.message(F.text.startswith("💳") | F.text.in_([
+    "💳 Сколько осталось оплата", "💳 Qolgan muddat va to'lov",
+    "/subscription", "/tariff", "/tariffs", "/pay"
+]))
 async def cmd_subscription_menu(message: types.Message):
     """Displays subscription info, payment card, and days left"""
     async with async_session() as session:
         user, _ = await get_user_and_org(session, message.from_user)
-        if not user or not user.is_access_granted():
-            await message.answer("Для доступа к тарифам сначала зарегистрируйтесь: /start")
+        lang = user.language if user else "ru"
+        if not user:
+            no_acc = "Tariflar bilan tanishish uchun avval ro'yxatdan o'ting: /start" if lang == "uz" else "Для доступа к тарифам сначала зарегистрируйтесь: /start"
+            await message.answer(no_acc)
             return
         days = user.days_left()
-        lang = user.language or "ru"
+        is_active = user.is_access_granted()
 
     if lang == "uz":
+        status_line = f"⏳ Faol muddat: <b>{days} kun qoldi</b>" if is_active else "⏳ Holat: <b>Sinov muddati yakunlangan (0 kun)</b>"
         text = (
             f"💳 <b>BRAINCAM AI — OBUNA VA TO'LOV</b>\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
-            f"⏳ Faol muddat: <b>{days} kun qoldi</b>\n"
+            f"{status_line}\n"
             f"💰 Oylik to'lov: <b>{settings.SUBSCRIPTION_MONTHLY_PRICE}</b>\n\n"
             f"<b>To'lov uchun VISA karta rekvizitlari:</b>\n"
             f"💳 Karta raqami: <code>{settings.VISA_CARD_NUMBER}</code>\n"
-            f"👤 Qabul qiluvchi: <b>{settings.VISA_CARD_HOLDER}</b>\n\n"
-            f"To'lovni amalga oshirgach, chekning skrinshotini (rasmini) shu yerga yuboring!"
+            f"👤 Karta egasi: <b>{settings.VISA_CARD_HOLDER}</b>\n"
+            f"💬 Egasi (Telegram): <b>@{settings.ADMIN_TELEGRAM_USERNAME}</b>\n\n"
+            f"To'lovni amalga oshirgach, chekning skrinshotini (rasmini) shu yerga yuboring yoki @{settings.ADMIN_TELEGRAM_USERNAME} ga yozing!"
         )
     else:
+        status_line = f"⏳ Доступ активен: <b>осталось {days} дн.</b>" if is_active else "⏳ Статус доступа: <b>Срок истек (0 дн.)</b>"
         text = (
             f"💳 <b>BRAINCAM AI — ТАРИФ И ОПЛАТА</b>\n"
             f"━━━━━━━━━━━━━━━━━━━\n"
-            f"⏳ Доступ активен: <b>осталось {days} дн.</b>\n"
+            f"{status_line}\n"
             f"💰 Стоимость подписки: <b>{settings.SUBSCRIPTION_MONTHLY_PRICE}</b>\n\n"
             f"<b>Реквизиты для оплаты (VISA):</b>\n"
             f"💳 Номер карты: <code>{settings.VISA_CARD_NUMBER}</code>\n"
-            f"👤 Получатель: <b>{settings.VISA_CARD_HOLDER}</b>\n\n"
-            f"После перевода просто <b>отправьте фото или скриншот чека</b> прямо в этот чат!"
+            f"👤 Держатель карты: <b>{settings.VISA_CARD_HOLDER}</b>\n"
+            f"💬 Владелец (Telegram): <b>@{settings.ADMIN_TELEGRAM_USERNAME}</b>\n\n"
+            f"После перевода просто <b>отправьте фото или скриншот чека</b> прямо в этот чат или напишите @{settings.ADMIN_TELEGRAM_USERNAME}!"
         )
 
     await message.answer(text, parse_mode="HTML")
+
+# ================= MINI APP / DASHBOARD =================
+
+@dp.message(F.text.in_([
+    "📱 Войти в Mini App", "📱 Mini App-ga kirish",
+    "📱 Открыть Mini App", "📱 Mini App-ni ochish",
+    "📱 Открыть Dashboard в приложении", "📱 Dashboard ilovasini ochish",
+    "/miniapp", "/app"
+]))
+async def cmd_open_miniapp(message: types.Message):
+    """Direct access & guide for BrainCam Mini App / Dashboard"""
+    async with async_session() as session:
+        user, _ = await get_user_and_org(session, message.from_user)
+        lang = user.language if user else "ru"
+
+    if lang == "uz":
+        text = (
+            "📱 <b>BrainCam AI Mini App / Boshqaruv paneli</b>\n\n"
+            "Ilovaga kirish va to'liq boshqaruv panelidan foydalanish uchun quyidagi tugmani bosing.\n\n"
+            "<b>Ilova imkoniyatlari:</b>\n"
+            "• 📊 Real vaqtdagi savdo, tashriflar va konversiya grafigi\n"
+            "• 📹 Do'kon kameralari va jonli monitoring\n"
+            "• 🎙 Ovozli tahlil: mijozlar e'tiroz va shikoyatlarini aniqlash\n"
+            "• 💡 Daromadni oshirish bo'yicha sun'iy intellekt tavsiyalari\n\n"
+            "👇 <i>Ilovani ochish uchun pastdagi tugmani bosing:</i>"
+        )
+    else:
+        text = (
+            "📱 <b>BrainCam AI Mini App / Панель управления</b>\n\n"
+            "Для входа в приложение и работы с полным дашбордом нажмите кнопку ниже.\n\n"
+            "<b>Возможности приложения:</b>\n"
+            "• 📊 Графика продаж, трафика посетителей и конверсии в реальном времени\n"
+            "• 📹 Подключенные камеры магазина и мониторинг касс\n"
+            "• 🎙 Аудиоаналитика: детекция конфликтов и возражений клиентов\n"
+            "• 💡 Рекомендации нейросети по росту среднего чека и выручки\n\n"
+            "👇 <i>Нажмите кнопку ниже для запуска Mini App:</i>"
+        )
+    await message.answer(text, parse_mode="HTML", reply_markup=get_miniapp_inline_keyboard(lang))
 
 @dp.message(F.photo & ~F.caption.contains("cam:"))
 async def handle_photo_receipt_or_analysis(message: types.Message, bot: Bot, state: FSMContext):
@@ -471,7 +560,8 @@ async def handle_photo_receipt_or_analysis(message: types.Message, bot: Bot, sta
         return
 
     # Otherwise: regular camera frame vision analysis with Gemini 2.5 Flash Lite
-    wait_msg = await message.answer("🔍 Анализирую кадр через Gemini 2.5 Flash Lite...")
+    wait_text = "🔍 Gemini 2.5 Flash Lite orqali kadr tahlil qilinmoqda..." if lang == "uz" else "🔍 Анализирую кадр через Gemini 2.5 Flash Lite..."
+    wait_msg = await message.answer(wait_text)
     file = await bot.get_file(photo.file_id)
     file_bytes_io = io.BytesIO()
     await bot.download_file(file.file_path, file_bytes_io)
@@ -507,13 +597,29 @@ async def admin_approve_payment(callback: types.CallbackQuery, bot: Bot):
         user_res = await session.execute(user_stmt)
         user = user_res.scalar_one_or_none()
 
-        if user:
-            user.is_paid = True
-            current_target = user.paid_until if (user.paid_until and user.paid_until > datetime.now(timezone.utc)) else datetime.now(timezone.utc)
-            user.paid_until = current_target + timedelta(days=30)
-            merchant_tg_id = user.telegram_id
-            lang = user.language or "ru"
-            days = user.days_left()
+        if not user:
+            await session.commit()
+            await callback.message.edit_caption(caption="✅ Чек одобрен (пользователь не найден).", parse_mode="HTML")
+            return
+
+        # 1. Update status and subscription flags
+        user.is_paid = True
+        user.status = UserStatusEnum.ACTIVE.value
+        user.reminders_sent = 0
+
+        # 2. Add +30 days safely without offset-naive / offset-aware TypeError
+        now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+        paid_naive = (
+            user.paid_until.astimezone(timezone.utc).replace(tzinfo=None)
+            if (user.paid_until and user.paid_until.tzinfo)
+            else (user.paid_until.replace(tzinfo=None) if user.paid_until else None)
+        )
+        base_time = paid_naive if (paid_naive and paid_naive > now_naive) else now_naive
+        user.paid_until = base_time + timedelta(days=30)
+
+        merchant_tg_id = user.telegram_id
+        lang = user.language or "ru"
+        days = user.days_left()
 
         await session.commit()
 
@@ -535,14 +641,36 @@ async def admin_approve_payment(callback: types.CallbackQuery, bot: Bot):
 @dp.callback_query(F.data.startswith("admin:pay_no:"))
 async def admin_reject_payment(callback: types.CallbackQuery, bot: Bot):
     payment_id = int(callback.data.split(":")[2])
+    merchant_tg_id = None
+    lang = "ru"
     async with async_session() as session:
         stmt = select(PaymentReceipt).where(PaymentReceipt.id == payment_id)
         res = await session.execute(stmt)
         receipt = res.scalar_one_or_none()
         if receipt:
             receipt.status = "rejected"
+            user_stmt = select(User).where(User.id == receipt.user_id)
+            user_res = await session.execute(user_stmt)
+            user = user_res.scalar_one_or_none()
+            if user:
+                merchant_tg_id = user.telegram_id
+                lang = user.language or "ru"
             await session.commit()
+
     await callback.message.edit_caption(caption="❌ Чек отклонен.", parse_mode="HTML")
+
+    if merchant_tg_id:
+        rej_msg = (
+            "❌ <b>Ваш чек об оплате был отклонен.</b>\n"
+            f"Пожалуйста, свяжитесь с поддержкой: @{settings.ADMIN_TELEGRAM_USERNAME}"
+        ) if lang == "ru" else (
+            "❌ <b>Siz yuborgan to'lov cheki rad etildi.</b>\n"
+            f"Iltimos, administrator bilan bog'laning: @{settings.ADMIN_TELEGRAM_USERNAME}"
+        )
+        try:
+            await bot.send_message(chat_id=merchant_tg_id, text=rej_msg, parse_mode="HTML")
+        except Exception:
+            pass
 
 # ================= CUSTOM REPORT TIME =================
 
@@ -552,11 +680,23 @@ async def cmd_set_report_time(message: types.Message):
     async with async_session() as session:
         user, _ = await get_user_and_org(session, message.from_user)
         current_time = user.daily_report_time if user else "21:00"
+        lang = user.language if user else "ru"
+
+    if lang == "uz":
+        text = (
+            f"⏰ <b>Kunlik hisobot vaqtini sozlash</b>\n\n"
+            f"Hozirgi hisobot yetkazish vaqti: <b>{current_time}</b>\n"
+            f"Smena yopilishiga mos vaqtni tanlang:"
+        )
+    else:
+        text = (
+            f"⏰ <b>Настройка ежедневного времени отчета</b>\n\n"
+            f"Текущее время доставки отчета: <b>{current_time}</b>\n"
+            f"Выберите удобное время закрытия смены:"
+        )
 
     await message.answer(
-        f"⏰ <b>Настройка ежедневного времени отчета</b>\n\n"
-        f"Текущее время доставки отчета: <b>{current_time}</b>\n"
-        f"Выберите удобное время закрытия смены:",
+        text,
         parse_mode="HTML",
         reply_markup=get_report_time_inline_keyboard()
     )
@@ -566,37 +706,195 @@ async def callback_select_time(callback: types.CallbackQuery):
     new_time = callback.data.split(":")[1] + ":" + callback.data.split(":")[2]
     async with async_session() as session:
         user, _ = await get_user_and_org(session, callback.from_user)
+        lang = user.language if user else "ru"
         if user:
             user.daily_report_time = new_time
             await session.commit()
 
+    if lang == "uz":
+        text = (
+            f"✅ <b>Hisobot vaqti {new_time} ga o'rnatildi!</b>\n"
+            f"Har kuni kechqurun soat {new_time} da bot sizga kun tahlilini (mijozlar oqimi, xaridlar, konversiya va shikoyatlar) avtomatik yuboradi."
+        )
+    else:
+        text = (
+            f"✅ <b>Время отчета установлено на {new_time}!</b>\n"
+            f"Каждый вечер в {new_time} бот будет автоматически присылать вам анализ дня (трафик, покупки, конверсию и жалобы)."
+        )
+
+    await callback.message.edit_text(text, parse_mode="HTML")
+    await callback.answer()
+
+# ================= SETTINGS MENU =================
+
+@dp.message(F.text.in_(["⚙️ Настройки", "⚙️ Sozlamalar", "/settings"]))
+async def cmd_settings(message: types.Message):
+    """Displays settings menu for language, report delivery time, and Mini App link"""
+    async with async_session() as session:
+        user, org = await get_user_and_org(session, message.from_user)
+        lang = user.language if user else "ru"
+        current_time = user.daily_report_time if user else "21:00"
+
+    if lang == "uz":
+        text = (
+            f"⚙️ <b>Do'kon sozlamalari</b>\n\n"
+            f"• 🌐 Tanlangan til: <b>O'zbekcha 🇺🇿</b>\n"
+            f"• ⏰ Kunlik hisobot vaqti: <b>{current_time}</b>\n\n"
+            f"Kerakli parametrni o'zgartirish uchun quyidagi tugmalardan birini bosing:"
+        )
+    else:
+        text = (
+            f"⚙️ <b>Настройки магазина</b>\n\n"
+            f"• 🌐 Выбранный язык: <b>Русский 🇷🇺</b>\n"
+            f"• ⏰ Время отправки отчета: <b>{current_time}</b>\n\n"
+            f"Нажмите на нужную кнопку для изменения параметров:"
+        )
+    await message.answer(text, parse_mode="HTML", reply_markup=get_settings_inline_keyboard(lang))
+
+@dp.callback_query(F.data == "settings:lang")
+async def callback_settings_lang(callback: types.CallbackQuery):
     await callback.message.edit_text(
-        f"✅ <b>Время отчета установлено на {new_time}!</b>\n"
-        f"Каждый вечер в {new_time} бот будет автоматически присылать вам анализ дня (трафик, покупки, конверсию и жалобы).",
-        parse_mode="HTML"
+        "Выберите язык интерфейса / Tilni tanlang:",
+        reply_markup=get_language_inline_keyboard()
     )
     await callback.answer()
 
-# ================= AI CONVERSATIONAL ASSISTANT =================
+@dp.callback_query(F.data == "settings:time")
+async def callback_settings_time(callback: types.CallbackQuery):
+    async with async_session() as session:
+        user, _ = await get_user_and_org(session, callback.from_user)
+        current_time = user.daily_report_time if user else "21:00"
+        lang = user.language if user else "ru"
 
-@dp.message(F.text & ~F.text.startswith("/") & ~F.text.in_([
-    "📊 Отчет за сегодня", "📊 Kunlik Hisobot", "📹 Мои Камеры", "📹 Kameralarim",
-    "💬 Чат с AI консультантом", "💬 AI bilan suhbat", "🌐 Сменить язык", "🌐 Tilni o'zgartirish",
+    if lang == "uz":
+        text = (
+            f"⏰ <b>Kunlik hisobot vaqtini tanlang</b>\n\n"
+            f"Hozirgi vaqt: <b>{current_time}</b>"
+        )
+    else:
+        text = (
+            f"⏰ <b>Выберите время ежедневного отчета</b>\n\n"
+            f"Текущее время: <b>{current_time}</b>"
+        )
+    await callback.message.edit_text(text, parse_mode="HTML", reply_markup=get_report_time_inline_keyboard())
+    await callback.answer()
+
+# ================= ABOUT / SERVICE INFO =================
+
+@dp.message(F.text.in_(["ℹ️ О сервисе и пользе", "ℹ️ Xizmat haqida ma'lumot", "/info"]))
+async def cmd_service_info(message: types.Message):
+    async with async_session() as session:
+        user, _ = await get_user_and_org(session, message.from_user)
+        lang = user.language if user else "ru"
+
+    if lang == "uz":
+        text = (
+            "ℹ️ <b>BrainCam AI — Xizmat haqida va biznesingizga foydasi:</b>\n\n"
+            "• 👥 <b>Haqiqiy tashrifchilar oqimi:</b> Do'koningizga qancha odam kirdi va qancha xarid bo'ldi (Konversiya %).\n"
+            "• 👔 <b>Xodimlar va kassirlar nazorati:</b> Xodimlar ish joyidami, qachon keldi, telefonga chalg'iganmi yoki yo'q.\n"
+            "• 🎙 <b>Ovozli tahlil:</b> Mikrofon orqali mijozlarning e'tiroz va shikoyatlarini avtomatik aniqlash.\n"
+            "• 💡 <b>AI Maslahatlar:</b> Savdoni va o'rtacha chekni oshirish bo'yicha har kuni yangi tavsiyalar.\n"
+            "• ⏰ <b>Kunlik Telegram hisobot:</b> Har kuni kechqurun smena yopilganda batafsil hisobot.\n\n"
+            "🎁 <b>Barcha yangi foydalanuvchilar uchun 7 kunlik to'liq bepul sinov davri!</b>"
+        )
+    else:
+        text = (
+            "ℹ️ <b>BrainCam AI — О сервисе и пользе для вашего бизнеса:</b>\n\n"
+            "• 👥 <b>Точный трафик:</b> Сколько человек зашло в магазин и сколько реально купило (Конверсия %).\n"
+            "• 👔 <b>Контроль персонала:</b> На месте ли сотрудники, скорость обслуживания, нет ли зависания в телефонах.\n"
+            "• 🎙 <b>Аудиоконтроль:</b> Детекция жалоб клиентов и конфликтов через микрофон камеры.\n"
+            "• 💡 <b>AI-рекомендации:</b> Советы по выкладке, кассам и персоналу для роста вашей прибыли.\n"
+            "• ⏰ <b>Ежедневные отчеты:</b> Автоматический вечерний дайджест в Telegram в выбранный час.\n\n"
+            "🎁 <b>Для новых пользователей доступен 7-дневный бесплатный пробный период!</b>"
+        )
+    await message.answer(text, parse_mode="HTML")
+
+# ================= AI CONVERSATIONAL & INTRO =================
+
+@dp.message(F.text.in_(["💬 Чат с AI консультантом", "💬 AI bilan suhbat", "/ai"]))
+async def cmd_ai_chat_intro(message: types.Message):
+    async with async_session() as session:
+        user, _ = await get_user_and_org(session, message.from_user)
+        lang = user.language if user else "ru"
+
+    if lang == "uz":
+        text = (
+            "💬 <b>BrainCam AI Biznes-Konsultant</b>\n\n"
+            "Do'koningiz savdosi, xodimlar yoki mijozlar oqimi haqidagi har qanday savolni to'g'ridan-to'g'ri shu chatga yozing!\n\n"
+            "<b>Namunaviy savollar:</b>\n"
+            "• <i>«Bugungi konversiya va xaridlar soni qanday?»</i>\n"
+            "• <i>«Nega soat 17:00 da kassada navbat yuzaga keldi?»</i>\n"
+            "• <i>«Do'konimda o'rtacha chekni qanday qilib oshirish mumkin?»</i>"
+        )
+    else:
+        text = (
+            "💬 <b>AI Бизнес-Консультант BrainCam</b>\n\n"
+            "Задайте любой вопрос о продажах, персонале или трафике вашего магазина прямо в этот чат!\n\n"
+            "<b>Примеры вопросов:</b>\n"
+            "• <i>«Сколько людей зашло сегодня и какая конверсия?»</i>\n"
+            "• <i>«Были ли сегодня очереди на кассе?»</i>\n"
+            "• <i>«Как увеличить средний чек на этой неделе?»</i>"
+        )
+    await message.answer(text, parse_mode="HTML")
+
+@dp.message(F.text.in_(["🔍 AI Анализ кадра/аудио", "🔍 Kadr/Ovoz AI tahlili", "/analyze"]))
+async def cmd_frame_analysis_intro(message: types.Message):
+    async with async_session() as session:
+        user, _ = await get_user_and_org(session, message.from_user)
+        lang = user.language if user else "ru"
+
+    if lang == "uz":
+        text = (
+            "🔍 <b>Kadr yoki audio tezkor AI tahlili</b>\n\n"
+            "Ushbu chatga kameradan olingan fotosurat yoki audio yozuv yuboring. Gemini neyrotarmog'i darhol tahlil qiladi:\n"
+            "• Tashrifchilar va kassirlar soni\n"
+            "• Navbatlar va xizmat ko'rsatish tezligi\n"
+            "• Xodimlar harakati va xatti-harakati\n"
+            "• E'tirozlar, bahslar yoki mijozlar kayfiyati\n\n"
+            "📸 <i>Hozir surat yuborib ko'ring!</i>"
+        )
+    else:
+        text = (
+            "🔍 <b>Мгновенный AI Анализ кадра или аудио</b>\n\n"
+            "Отправьте фото (снимок с камеры магазина) или аудиозапись прямо в этот чат. Нейросеть Gemini мгновенно определит:\n"
+            "• Количество покупателей и кассиров\n"
+            "• Длину очередей и скорость обслуживания\n"
+            "• Поведение сотрудников у кассы\n"
+            "• Жалобы, споры или эмоциональный фон\n\n"
+            "📸 <i>Отправьте фото прямо сейчас!</i>"
+        )
+    await message.answer(text, parse_mode="HTML")
+
+@dp.message(F.text & ~F.text.startswith("/") & ~F.text.startswith("💳") & ~F.text.in_([
+    "📊 Отчет за сегодня", "📊 Bugungi hisobot", "📊 Kunlik Hisobot",
+    "💳 Сколько осталось оплата", "💳 Qolgan muddat va to'lov",
+    "📱 Войти в Mini App", "📱 Mini App-ga kirish",
+    "📱 Открыть Mini App", "📱 Mini App-ni ochish",
+    "📱 Открыть Dashboard в приложении", "📱 Dashboard ilovasini ochish",
+    "📹 Мои Камеры", "📹 Kameralarim",
+    "💬 Чат с AI консультантом", "💬 AI bilan suhbat",
+    "🔍 AI Анализ кадра/аудио", "🔍 Kadr/Ovoz AI tahlili",
+    "🌐 Сменить язык", "🌐 Tilni o'zgartirish",
     "📝 Подключить 7 дней бесплатно", "📝 7 kunlik bepul sinovga ulanish",
-    "⏰ Время отчета", "⏰ Hisobot vaqti", "⚙️ Настройки", "Sozlamalar"
+    "📝 Заполнить заявку в чате", "📝 Arizani chatda to'ldirish",
+    "⏰ Время отчета", "⏰ Hisobot vaqti",
+    "⚙️ Настройки", "⚙️ Sozlamalar",
+    "ℹ️ О сервисе и пользе", "ℹ️ Xizmat haqida ma'lumot"
 ]))
 async def handle_ai_chat_question(message: types.Message):
     """Answers store owner's free-form questions using real store metrics and Gemini"""
     async with async_session() as session:
         user, org = await get_user_and_org(session, message.from_user)
+        lang = user.language if user else "ru"
         if not user or not user.is_access_granted():
-            await message.answer("Для доступа к AI-консультанту сначала завершите регистрацию: /start")
+            no_acc = "AI maslahatchidan foydalanish uchun avval ro'yxatdan o'ting: /start" if lang == "uz" else "Для доступа к AI-консультанту сначала завершите регистрацию: /start"
+            await message.answer(no_acc)
             return
 
-        lang = user.language or "ru"
         metrics = await AnalyticsService.get_daily_metrics(session, org.id if org else 1)
 
-    wait_msg = await message.answer("🧠 Анализирую данные магазина...")
+    wait_text = "🧠 Do'kon ma'lumotlari tahlil qilinmoqda..." if lang == "uz" else "🧠 Анализирую данные магазина..."
+    wait_msg = await message.answer(wait_text)
     answer = await gemini_service.answer_merchant_question(
         question=message.text,
         store_context=metrics,
@@ -609,34 +907,56 @@ async def handle_ai_chat_question(message: types.Message):
 
 @dp.callback_query(F.data == "cam:guide")
 async def show_camera_guide(callback: types.CallbackQuery):
-    guide_text = (
-        "📹 <b>КАК ИНТЕГРИРОВАТЬ ВАШИ КАМЕРЫ В BRAINCAM AI</b>\n\n"
-        "<b>Вариант 1 (Стандартный RTSP):</b>\n"
-        "Если на роутере магазина настроен проброс портов (порт 554) или есть белый IP:\n"
-        "• Hikvision: <code>rtsp://admin:пароль@IP:554/Streaming/Channels/101</code>\n"
-        "• Dahua: <code>rtsp://admin:пароль@IP:554/cam/realmonitor?channel=1&subtype=0</code>\n\n"
-        "<b>Вариант 2 (Без белого IP — Local Edge Agent):</b>\n"
-        "Запустите легкий агент на компьютере магазина (кассовый ПК или Windows/Linux mini-PC):\n"
-        "<code>python braincam_agent.py --rtsp rtsp://192.168.1.101:554/live</code>\n"
-        "Агент сам шифрует и передает кадры на сервер BrainCam AI!\n\n"
-        "<b>Вариант 3 (Массовая интеграция):</b>\n"
-        "В Dashboard доступен автосканер сети магазина и импорт через CSV-файл сотен камер сразу!"
-    )
+    async with async_session() as session:
+        user, _ = await get_user_and_org(session, callback.from_user)
+        lang = user.language if user else "ru"
+
+    if lang == "uz":
+        guide_text = (
+            "📹 <b>KAMERALARNI BRAINCAM AI GA ULASH QO'LLANMASI</b>\n\n"
+            "<b>1-usul (Standart RTSP oqimi):</b>\n"
+            "Agar do'kondagi routerda port yo'naltirilgan bo'lsa (554-port) yoki statik oq IP bo'lsa:\n"
+            "• Hikvision: <code>rtsp://admin:parol@IP:554/Streaming/Channels/101</code>\n"
+            "• Dahua: <code>rtsp://admin:parol@IP:554/cam/realmonitor?channel=1&subtype=0</code>\n\n"
+            "<b>2-usul (Oq IP bo'lmasa — Local Edge Agent):</b>\n"
+            "Do'kondagi kompyuterda (kassa yoki mini-PC) kichik agentni ishga tushiring:\n"
+            "<code>python braincam_agent.py --rtsp rtsp://192.168.1.101:554/live</code>\n"
+            "Agent kadrlarni xavfsiz shifrlab BrainCam AI serveriga yuboradi!\n\n"
+            "<b>3-usul (Ommaviy import):</b>\n"
+            "Mini App va Dashboard orqali lokal tarmoqni avtoskanerlash yoki CSV fayl orqali bir vaqtning o'zida yuzlab kameralarni qo'shish mumkin!"
+        )
+    else:
+        guide_text = (
+            "📹 <b>КАК ИНТЕГРИРОВАТЬ ВАШИ КАМЕРЫ В BRAINCAM AI</b>\n\n"
+            "<b>Вариант 1 (Стандартный RTSP):</b>\n"
+            "Если на роутере магазина настроен проброс портов (порт 554) или есть белый IP:\n"
+            "• Hikvision: <code>rtsp://admin:пароль@IP:554/Streaming/Channels/101</code>\n"
+            "• Dahua: <code>rtsp://admin:пароль@IP:554/cam/realmonitor?channel=1&subtype=0</code>\n\n"
+            "<b>Вариант 2 (Без белого IP — Local Edge Agent):</b>\n"
+            "Запустите легкий агент на компьютере магазина (кассовый ПК или Windows/Linux mini-PC):\n"
+            "<code>python braincam_agent.py --rtsp rtsp://192.168.1.101:554/live</code>\n"
+            "Агент сам шифрует и передает кадры на сервер BrainCam AI!\n\n"
+            "<b>Вариант 3 (Массовая интеграция):</b>\n"
+            "В Dashboard доступен автосканер сети магазина и импорт через CSV-файл сотен камер сразу!"
+        )
     await callback.message.answer(guide_text, parse_mode="HTML")
     await callback.answer()
 
-@dp.message(F.text.in_(["📊 Отчет за сегодня", "📊 Kunlik Hisobot", "/report"]))
+@dp.message(F.text.in_(["📊 Отчет за сегодня", "📊 Bugungi hisobot", "📊 Kunlik Hisobot", "/report"]))
 async def cmd_daily_report(message: types.Message):
-    wait_msg = await message.answer("⏳ Собираем данные и формируем AI-анализ...")
     async with async_session() as session:
         user, org = await get_user_and_org(session, message.from_user)
-        if not user or not user.is_access_granted():
-            await wait_msg.delete()
-            await message.answer("Доступ еще не активирован. Проверьте статус регистрации в /start")
-            return
-        lang = user.language or "ru"
+        lang = user.language if user else "ru"
         store_name = user.store_name or (org.name if org else "Магазин")
 
+        if not user or not user.is_access_granted():
+            no_acc_text = "Kirish hali faollashtirilmagan. Ro'yxatdan o'tish holatini /start orqali tekshiring" if lang == "uz" else "Доступ еще не активирован. Проверьте статус регистрации в /start"
+            await message.answer(no_acc_text)
+            return
+
+    wait_text = "⏳ Ma'lumotlar to'planmoqda va AI tahlili tayyorlanmoqda..." if lang == "uz" else "⏳ Собираем данные и формируем AI-анализ..."
+    wait_msg = await message.answer(wait_text)
+    async with async_session() as session:
         report = await AnalyticsService.generate_or_update_daily_report(session, org.id if org else 1)
         report_text = NotificationService.format_daily_digest(report, store_name=store_name, language=lang)
 
@@ -647,28 +967,38 @@ async def cmd_daily_report(message: types.Message):
 async def cmd_cameras(message: types.Message):
     async with async_session() as session:
         user, org = await get_user_and_org(session, message.from_user)
+        lang = user.language if user else "ru"
         if not user or not user.is_access_granted():
-            await message.answer("Сначала завершите регистрацию: /start")
+            no_acc_text = "Avval ro'yxatdan o'tishni yakunlang: /start" if lang == "uz" else "Сначала завершите регистрацию: /start"
+            await message.answer(no_acc_text)
             return
-        lang = user.language or "ru"
 
-        stmt = select(Camera).where(Camera.org_id == org.id if org else 1)
+        stmt = select(Camera).where(Camera.org_id == (org.id if org else 1))
         res = await session.execute(stmt)
         cameras = res.scalars().all()
 
     if not cameras:
-        await message.answer("Камеры еще не добавлены.", reply_markup=get_camera_guide_keyboard(lang))
+        no_cam_text = "Kameralar hali qo'shilmagan." if lang == "uz" else "Камеры еще не добавлены."
+        await message.answer(no_cam_text, reply_markup=get_camera_guide_keyboard(lang))
         return
 
     for cam in cameras:
-        cam_info = (
-            f"📹 <b>{cam.name}</b>\n"
-            f"📍 Зона: <code>{cam.camera_type}</code> | 🟢 <b>{cam.status}</b>\n"
-            f"🔗 RTSP: <code>{cam.rtsp_url}</code>"
-        )
+        if lang == "uz":
+            cam_info = (
+                f"📹 <b>{cam.name}</b>\n"
+                f"📍 Hudud: <code>{cam.camera_type}</code> | 🟢 <b>{cam.status}</b>\n"
+                f"🔗 RTSP: <code>{cam.rtsp_url}</code>"
+            )
+        else:
+            cam_info = (
+                f"📹 <b>{cam.name}</b>\n"
+                f"📍 Зона: <code>{cam.camera_type}</code> | 🟢 <b>{cam.status}</b>\n"
+                f"🔗 RTSP: <code>{cam.rtsp_url}</code>"
+            )
         await message.answer(cam_info, parse_mode="HTML", reply_markup=get_camera_actions_inline(cam.id, lang))
 
-    await message.answer("Инструкция по подключению:", reply_markup=get_camera_guide_keyboard(lang))
+    guide_prompt = "Ulash bo'yicha qo'llanma:" if lang == "uz" else "Инструкция по подключению:"
+    await message.answer(guide_prompt, reply_markup=get_camera_guide_keyboard(lang))
 
 @dp.callback_query(F.data.startswith("cam:"))
 async def callback_cam_action(callback: types.CallbackQuery):
@@ -679,29 +1009,36 @@ async def callback_cam_action(callback: types.CallbackQuery):
 
     cam_id = int(parts[2])
     async with async_session() as session:
+        user, _ = await get_user_and_org(session, callback.from_user)
+        lang = user.language if user else "ru"
         cam_stmt = select(Camera).where(Camera.id == cam_id)
         cam_res = await session.execute(cam_stmt)
         cam = cam_res.scalar_one_or_none()
 
     if not cam:
-        await callback.answer("Камера не найдена")
+        not_found_msg = "Kamera topilmadi" if lang == "uz" else "Камера не найдена"
+        await callback.answer(not_found_msg)
         return
 
     if action == "snap":
-        await callback.answer("📸 Получаем снимок...")
+        snap_wait = "📸 Kadr olinmoqda..." if lang == "uz" else "📸 Получаем снимок..."
+        await callback.answer(snap_wait)
         frame = RTSPCaptureService.get_snapshot(cam.rtsp_url)
         photo = BufferedInputFile(frame, filename="snapshot.jpg")
-        await callback.message.answer_photo(photo, caption=f"📹 Кадр с камеры <b>{cam.name}</b>", parse_mode="HTML")
+        cap_text = f"📹 <b>{cam.name}</b> kamerasidan kadr" if lang == "uz" else f"📹 Кадр с камеры <b>{cam.name}</b>"
+        await callback.message.answer_photo(photo, caption=cap_text, parse_mode="HTML")
     elif action == "analyze":
-        await callback.answer("⚡️ AI анализирует...")
+        analyze_wait = "⚡️ AI tahlil qilmoqda..." if lang == "uz" else "⚡️ AI анализирует..."
+        await callback.answer(analyze_wait)
         frame = RTSPCaptureService.get_snapshot(cam.rtsp_url)
-        ai_data = await gemini_service.analyze_frame(frame, camera_type=cam.camera_type)
-        res_text = NotificationService.format_camera_analysis_result(ai_data)
+        ai_data = await gemini_service.analyze_frame(frame, camera_type=cam.camera_type, language=lang)
+        res_text = NotificationService.format_camera_analysis_result(ai_data, language=lang)
         photo = BufferedInputFile(frame, filename="analyzed.jpg")
         await callback.message.answer_photo(photo, caption=res_text, parse_mode="HTML")
     elif action == "test":
         ok, msg = RTSPCaptureService.test_connection(cam.rtsp_url)
-        await callback.answer(f"Статус: {msg}", show_alert=True)
+        alert_msg = f"Holat: {msg}" if lang == "uz" else f"Статус: {msg}"
+        await callback.answer(alert_msg, show_alert=True)
 
 @dp.message(F.text.in_(["🌐 Сменить язык", "🌐 Tilni o'zgartirish", "/language"]))
 async def cmd_language(message: types.Message):

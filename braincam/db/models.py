@@ -91,11 +91,19 @@ class User(Base):
 
     def is_access_granted(self) -> bool:
         """Checks if merchant has active access (either approved trial or paid subscription)"""
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
         if self.status != UserStatusEnum.ACTIVE.value:
             return False
-        paid = self.paid_until.replace(tzinfo=None) if self.paid_until else None
-        trial = self.trial_ends_at.replace(tzinfo=None) if self.trial_ends_at else None
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        paid = (
+            self.paid_until.astimezone(timezone.utc).replace(tzinfo=None)
+            if (self.paid_until and self.paid_until.tzinfo)
+            else (self.paid_until.replace(tzinfo=None) if self.paid_until else None)
+        )
+        trial = (
+            self.trial_ends_at.astimezone(timezone.utc).replace(tzinfo=None)
+            if (self.trial_ends_at and self.trial_ends_at.tzinfo)
+            else (self.trial_ends_at.replace(tzinfo=None) if self.trial_ends_at else None)
+        )
         if self.is_paid and paid and paid > now:
             return True
         if trial and trial > now:
@@ -108,7 +116,12 @@ class User(Base):
         target = self.paid_until if self.is_paid else self.trial_ends_at
         if not target:
             return 0
-        diff = target.replace(tzinfo=None) - now
+        target_naive = (
+            target.astimezone(timezone.utc).replace(tzinfo=None)
+            if target.tzinfo
+            else target.replace(tzinfo=None)
+        )
+        diff = target_naive - now
         return max(0, diff.days)
 
 class PaymentReceipt(Base):

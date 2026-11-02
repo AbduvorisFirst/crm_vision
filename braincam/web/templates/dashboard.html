@@ -13,12 +13,38 @@
     body { font-family: 'Inter', sans-serif; }
     .badge-online { background-color: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
     .badge-error { background-color: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+    
+    /* Custom scrollbar for chat */
+    .chat-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+    .chat-scroll::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    .chat-scroll::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 3px;
+    }
+    .chat-scroll::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+    
+    /* Typing dots animation */
+    .typing-dot {
+      animation: typing 1.4s infinite ease-in-out both;
+    }
+    .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+    .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+    @keyframes typing {
+      0%, 80%, 100% { transform: scale(0); }
+      40% { transform: scale(1); }
+    }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased flex h-screen overflow-hidden">
 
   <!-- Sidebar -->
-  <aside class="w-64 bg-slate-900 text-slate-200 flex flex-col justify-between shrink-0">
+  <aside class="w-64 bg-slate-900 text-slate-200 flex flex-col justify-between shrink-0 select-none">
     <div>
       <!-- Brand -->
       <div class="h-16 flex items-center px-6 border-b border-slate-800 gap-3">
@@ -33,9 +59,16 @@
 
       <!-- Navigation -->
       <nav class="p-4 space-y-1">
-        <a href="#dashboard" onclick="switchTab('dashboard')" id="nav-dashboard" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium bg-indigo-600 text-white shadow-sm">
+        <a href="#dashboard" onclick="switchTab('dashboard')" id="nav-dashboard" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium bg-indigo-600 text-white shadow-sm transition">
           <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
           <span class="lang-text" data-ru="Дашборд" data-uz="Boshqaruv paneli">Дашборд</span>
+        </a>
+        <a href="#ai-chat" onclick="switchTab('ai-chat')" id="nav-ai-chat" class="flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition">
+          <div class="flex items-center gap-3">
+            <i data-lucide="bot-message-square" class="w-4 h-4 text-indigo-400"></i>
+            <span class="lang-text" data-ru="AI Консультант" data-uz="AI Maslahatchi">AI Консультант</span>
+          </div>
+          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Gemini</span>
         </a>
         <a href="#cameras" onclick="switchTab('cameras')" id="nav-cameras" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition">
           <i data-lucide="video" class="w-4 h-4"></i>
@@ -76,7 +109,7 @@
   <div class="flex-1 flex flex-col overflow-y-auto">
 
     <!-- Topbar -->
-    <header class="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between shrink-0">
+    <header class="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between shrink-0 sticky top-0 z-20">
       <div class="flex items-center gap-4">
         <h2 id="page-title" class="text-xl font-bold text-slate-900 lang-text" data-ru="Аналитика магазина за сегодня" data-uz="Bugungi do'kon tahlili">
           Аналитика магазина за сегодня
@@ -86,38 +119,43 @@
         </span>
       </div>
       <div class="flex items-center gap-3">
+        <!-- Quick AI Chat CTA in header -->
+        <button onclick="switchTab('ai-chat')" class="flex items-center gap-2 px-3 py-2 text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg shadow-xs transition">
+          <i data-lucide="bot-message-square" class="w-3.5 h-3.5 text-indigo-600"></i>
+          <span class="lang-text" data-ru="Спросить AI" data-uz="AIdan so'rash">Спросить AI</span>
+        </button>
         <button onclick="triggerTelegramReport()" class="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-sm transition">
           <i data-lucide="send" class="w-3.5 h-3.5"></i>
           <span class="lang-text" data-ru="Отправить отчет в Telegram" data-uz="Telegramga hisobot yuborish">Отправить отчет в Telegram</span>
         </button>
-        <div class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center font-bold text-xs text-slate-700">
+        <div class="w-8 h-8 rounded-full bg-indigo-100 border border-indigo-300 flex items-center justify-center font-bold text-xs text-indigo-700">
           BC
         </div>
       </div>
     </header>
 
     <!-- Page Body -->
-    <main class="p-8 space-y-8">
+    <main class="p-8 space-y-8 flex-1">
 
       <!-- ================= SECTION 1: DASHBOARD ================= -->
       <section id="section-dashboard" class="space-y-6">
 
-        <!-- KPI Cards Grid -->
+        <!-- KPI Cards Grid (All 5 Core Retail KPIs + Peak Hour) -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-          <!-- Card 1: Visitors -->
-          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+          <!-- Card 1: Visitors / Footfall (Traffic) -->
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs hover:border-indigo-300 transition">
             <div class="flex items-center justify-between text-slate-500 mb-2">
-              <span class="text-xs font-medium lang-text" data-ru="Посетители (Входы)" data-uz="Tashrifchilar (Kirishlar)">Посетители (Входы)</span>
+              <span class="text-xs font-medium lang-text" data-ru="Посетители (Трафик)" data-uz="Tashrifchilar (Trafik)">Посетители (Трафик)</span>
               <i data-lucide="users" class="w-4 h-4 text-indigo-500"></i>
             </div>
             <div class="text-2xl font-bold text-slate-900" id="kpi-visitors">148</div>
             <div class="text-xs text-emerald-600 font-medium mt-1">↑ +14% к прошлой неделе</div>
           </div>
 
-          <!-- Card 2: Purchases -->
-          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+          <!-- Card 2: Purchases / Sales -->
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs hover:border-emerald-300 transition">
             <div class="flex items-center justify-between text-slate-500 mb-2">
-              <span class="text-xs font-medium lang-text" data-ru="Покупки (Касса)" data-uz="Xaridlar (Kassa)">Покупки (Касса)</span>
+              <span class="text-xs font-medium lang-text" data-ru="Покупки (Продажи)" data-uz="Xaridlar (Savdolar)">Покупки (Продажи)</span>
               <i data-lucide="shopping-bag" class="w-4 h-4 text-emerald-500"></i>
             </div>
             <div class="text-2xl font-bold text-slate-900" id="kpi-buyers">41</div>
@@ -125,7 +163,7 @@
           </div>
 
           <!-- Card 3: Conversion Rate -->
-          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs hover:border-amber-300 transition">
             <div class="flex items-center justify-between text-slate-500 mb-2">
               <span class="text-xs font-medium lang-text" data-ru="Конверсия продаж" data-uz="Savdo konversiyasi">Конверсия продаж</span>
               <i data-lucide="percent" class="w-4 h-4 text-amber-500"></i>
@@ -135,7 +173,7 @@
           </div>
 
           <!-- Card 4: Peak Hour -->
-          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs hover:border-purple-300 transition">
             <div class="flex items-center justify-between text-slate-500 mb-2">
               <span class="text-xs font-medium lang-text" data-ru="Пиковый час" data-uz="Eng gavjum soat">Пиковый час</span>
               <i data-lucide="clock" class="w-4 h-4 text-purple-500"></i>
@@ -144,18 +182,18 @@
             <div class="text-xs text-slate-500 font-medium mt-1">34 человека за час</div>
           </div>
 
-          <!-- Card 5: Employee Rating -->
-          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+          <!-- Card 5: Employee Staff Score -->
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs hover:border-teal-300 transition">
             <div class="flex items-center justify-between text-slate-500 mb-2">
-              <span class="text-xs font-medium lang-text" data-ru="Персонал (AI)" data-uz="Xodimlar (AI)">Персонал (AI)</span>
+              <span class="text-xs font-medium lang-text" data-ru="Персонал (AI Score)" data-uz="Xodimlar (AI Score)">Персонал (AI Score)</span>
               <i data-lucide="user-check" class="w-4 h-4 text-teal-500"></i>
             </div>
             <div class="text-2xl font-bold text-slate-900" id="kpi-employee">4.9 <span class="text-xs text-slate-400 font-normal">/ 5.0</span></div>
             <div class="text-xs text-emerald-600 font-medium mt-1">На месте: 96% времени</div>
           </div>
 
-          <!-- Card 6: Audio Complaints -->
-          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+          <!-- Card 6: Customer Audio Complaints -->
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs hover:border-rose-300 transition">
             <div class="flex items-center justify-between text-slate-500 mb-2">
               <span class="text-xs font-medium lang-text" data-ru="Жалобы (Аудио)" data-uz="Shikoyatlar (Audio)">Жалобы (Аудио)</span>
               <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-500"></i>
@@ -176,21 +214,27 @@
                 </h3>
                 <p class="text-xs text-slate-500">Анализ с камер входа и кассы за день</p>
               </div>
-              <span class="text-xs font-medium px-2.5 py-1 bg-slate-100 rounded text-slate-600">Сегодня</span>
+              <button onclick="refreshAnalytics()" class="text-xs font-medium px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-700 flex items-center gap-1 transition">
+                <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+                <span class="lang-text" data-ru="Обновить" data-uz="Yangilash">Обновить</span>
+              </button>
             </div>
             <div class="h-64">
               <canvas id="trafficChart"></canvas>
             </div>
           </div>
 
-          <!-- AI Executive Insights Card -->
+          <!-- AI Executive Insights Card with Direct Ask AI CTA -->
           <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-xs flex flex-col justify-between">
             <div>
-              <div class="flex items-center gap-2 mb-3">
-                <i data-lucide="sparkles" class="w-5 h-5 text-indigo-600"></i>
-                <h3 class="font-bold text-slate-900 text-sm lang-text" data-ru="Рекомендации BrainCam AI" data-uz="BrainCam AI Tavsiyalari">
-                  Рекомендации BrainCam AI
-                </h3>
+              <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="sparkles" class="w-5 h-5 text-indigo-600"></i>
+                  <h3 class="font-bold text-slate-900 text-sm lang-text" data-ru="Рекомендации BrainCam AI" data-uz="BrainCam AI Tavsiyalari">
+                    Рекомендации BrainCam AI
+                  </h3>
+                </div>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">Live AI</span>
               </div>
               <p class="text-xs text-slate-600 leading-relaxed mb-4" id="ai-summary-text">
                 Анализ видеопотока показал высокую активность в зоне касс с 17:30 до 19:00. Кассир обслуживал в среднем за 85 сек/клиент.
@@ -206,13 +250,141 @@
                 </div>
               </div>
             </div>
-            <div class="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
-              <span class="text-slate-400">Модель: Gemini 2.5 Flash Lite</span>
-              <button onclick="refreshAnalytics()" class="text-indigo-600 hover:text-indigo-800 font-medium">Обновить</button>
+            
+            <div class="mt-4 pt-4 border-t border-slate-100 space-y-2">
+              <button onclick="switchTab('ai-chat')" class="w-full py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium flex items-center justify-center gap-2 transition shadow-xs">
+                <i data-lucide="bot-message-square" class="w-4 h-4"></i>
+                <span class="lang-text" data-ru="Задать вопрос AI об этих данных" data-uz="Ushbu ma'lumotlar bo'yicha AIdan so'rash">Задать вопрос AI об этих данных</span>
+              </button>
+              <div class="flex items-center justify-between text-[11px] text-slate-400">
+                <span>Модель: Gemini 2.5 Flash Lite</span>
+                <button onclick="refreshAnalytics()" class="text-indigo-600 hover:text-indigo-800 font-medium">Синхронизировать</button>
+              </div>
             </div>
           </div>
         </div>
 
+      </section>
+
+      <!-- ================= SECTION: AI CHAT (NEW DEDICATED CONSULTANT) ================= -->
+      <section id="section-ai-chat" class="space-y-6 hidden">
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-lg font-bold text-slate-900 lang-text" data-ru="Интерактивный AI-консультант BrainCam" data-uz="BrainCam interaktiv AI maslahatchisi">
+              Интерактивный AI-консультант BrainCam
+            </h3>
+            <p class="text-xs text-slate-500 lang-text" data-ru="Задавайте любые вопросы по посещаемости, выручке, конверсии кассы, жалобам и дисциплине персонала." data-uz="Tashriflar, tushum, kassa konversiyasi, shikoyatlar va xodimlar intizomi bo'yicha savollaringizni bering.">
+              Задавайте любые вопросы по посещаемости, выручке, конверсии кассы, жалобам и дисциплине персонала.
+            </p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              Gemini 2.5 Flash Lite Online
+            </span>
+          </div>
+        </div>
+
+        <!-- Quick Question Suggestion Pills -->
+        <div class="flex items-center gap-2 flex-wrap text-xs">
+          <span class="text-slate-500 font-medium lang-text" data-ru="Частые вопросы:" data-uz="Tezkor savollar:">Частые вопросы:</span>
+          <button onclick="askQuickPrompt('Какой трафик и конверсия за сегодня?')" class="px-3 py-1.5 bg-white border border-slate-200 hover:border-indigo-400 hover:text-indigo-600 rounded-lg text-slate-700 transition">
+            👥 Трафик и конверсия
+          </button>
+          <button onclick="askQuickPrompt('Как работает персонал на кассе? Есть ли замечания?')" class="px-3 py-1.5 bg-white border border-slate-200 hover:border-indigo-400 hover:text-indigo-600 rounded-lg text-slate-700 transition">
+            👔 Работа персонала на кассе
+          </button>
+          <button onclick="askQuickPrompt('Были ли зафиксированы сегодня жалобы покупателей?')" class="px-3 py-1.5 bg-white border border-slate-200 hover:border-indigo-400 hover:text-indigo-600 rounded-lg text-slate-700 transition">
+            🚨 Жалобы клиентов
+          </button>
+          <button onclick="askQuickPrompt('В какие часы сегодня пиковая нагрузка и очереди?')" class="px-3 py-1.5 bg-white border border-slate-200 hover:border-indigo-400 hover:text-indigo-600 rounded-lg text-slate-700 transition">
+            ⏰ Пиковые часы и очереди
+          </button>
+          <button onclick="askQuickPrompt('Что сделать сегодня вечером для роста продаж?')" class="px-3 py-1.5 bg-white border border-slate-200 hover:border-indigo-400 hover:text-indigo-600 rounded-lg text-slate-700 transition">
+            💡 Советы по росту продаж
+          </button>
+        </div>
+
+        <!-- Chat Container -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col h-[560px] overflow-hidden">
+          
+          <!-- Chat Header inside card -->
+          <div class="px-6 py-3.5 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                AI
+              </div>
+              <div>
+                <h4 class="font-bold text-slate-900 text-sm">BrainCam Retail Intelligence</h4>
+                <p class="text-[11px] text-slate-500">Подключен к видеоаналитике и кассовым событиям филиала Чиланзар №1</p>
+              </div>
+            </div>
+            <button onclick="clearChatHistory()" class="text-xs text-slate-400 hover:text-slate-600 flex items-center gap-1 transition">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              <span class="lang-text" data-ru="Очистить диалог" data-uz="Tozalash">Очистить</span>
+            </button>
+          </div>
+
+          <!-- Messages Scroll Area -->
+          <div id="chat-messages" class="flex-1 p-6 overflow-y-auto space-y-4 chat-scroll">
+            
+            <!-- Welcome message from AI -->
+            <div class="flex items-start gap-3 max-w-2xl">
+              <div class="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                AI
+              </div>
+              <div class="bg-slate-100 text-slate-800 rounded-2xl rounded-tl-sm px-4 py-3 text-xs leading-relaxed space-y-2 border border-slate-200">
+                <p class="font-semibold text-slate-900">
+                  👋 Здравствуйте! Я ваш AI-ассистент BrainCam.
+                </p>
+                <p>
+                  Я в реальном времени анализирую видеопотоки ваших камер, подсчитываю проходящих посетителей, определяю факт покупок на кассе, контролирую нахождение персонала на рабочем месте и слушаю аудиопоток на предмет жалоб.
+                </p>
+                <p class="text-slate-600">
+                  Вы можете задать любой вопрос, например:
+                </p>
+                <ul class="list-disc list-inside text-indigo-700 font-medium space-y-1">
+                  <li>«Сколько людей зашло и какая конверсия?»</li>
+                  <li>«Отвлекался ли кассир на телефон сегодня?»</li>
+                  <li>«О чем спорил покупатель в 18:22?»</li>
+                </ul>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Typing Indicator (Hidden by default) -->
+          <div id="chat-typing" class="px-6 py-2 bg-slate-50 text-xs text-slate-500 flex items-center gap-2 hidden border-t border-slate-100">
+            <span class="inline-flex gap-1 items-center">
+              <span class="w-1.5 h-1.5 bg-indigo-500 rounded-full typing-dot"></span>
+              <span class="w-1.5 h-1.5 bg-indigo-500 rounded-full typing-dot"></span>
+              <span class="w-1.5 h-1.5 bg-indigo-500 rounded-full typing-dot"></span>
+            </span>
+            <span>BrainCam AI анализирует показатели магазина...</span>
+          </div>
+
+          <!-- Chat Input Bar -->
+          <div class="p-4 bg-white border-t border-slate-200">
+            <form id="chat-form" onsubmit="handleChatSubmit(event)" class="flex items-center gap-2">
+              <input 
+                id="chat-input" 
+                type="text" 
+                placeholder="Задайте вопрос о трафике, конверсии, жалобах или персонале..."
+                class="flex-1 px-4 py-2.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                autocomplete="off"
+              />
+              <button 
+                id="chat-send-btn" 
+                type="submit" 
+                class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition disabled:opacity-50"
+              >
+                <i data-lucide="send" class="w-4 h-4"></i>
+                <span class="lang-text" data-ru="Отправить" data-uz="Yuborish">Отправить</span>
+              </button>
+            </form>
+          </div>
+
+        </div>
       </section>
 
       <!-- ================= SECTION 2: CAMERAS ================= -->
@@ -222,67 +394,21 @@
             <h3 class="text-lg font-bold text-slate-900 lang-text" data-ru="Подключенные IP-камеры" data-uz="Ulangan IP-kameralar">Подключенные IP-камеры</h3>
             <p class="text-xs text-slate-500">Управление RTSP потоками, виртуальными линиями и зонами детекции</p>
           </div>
-          <button onclick="openAddCameraModal()" class="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm transition">
-            <i data-lucide="plus" class="w-4 h-4"></i>
-            <span class="lang-text" data-ru="Добавить камеру" data-uz="Kamera qo'shish">Добавить камеру</span>
-          </button>
+          <div class="flex items-center gap-2">
+            <button onclick="loadCameras()" class="flex items-center gap-2 px-3 py-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+              <span class="lang-text" data-ru="Обновить кадры" data-uz="Kadrlarni yangilash">Обновить кадры</span>
+            </button>
+            <button onclick="openAddCameraModal()" class="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm transition">
+              <i data-lucide="plus" class="w-4 h-4"></i>
+              <span class="lang-text" data-ru="Добавить камеру" data-uz="Kamera qo'shish">Добавить камеру</span>
+            </button>
+          </div>
         </div>
 
-        <!-- Cameras Grid -->
+        <!-- Cameras Grid Container (Populated via loadCameras API) -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="cameras-grid">
-          <!-- Camera Card 1: Entrance -->
-          <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
-            <div class="relative bg-slate-900 h-48 flex items-center justify-center">
-              <img src="/api/v1/cameras/1/snapshot" alt="Entrance Feed" class="w-full h-full object-cover">
-              <span class="absolute top-3 left-3 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-500 text-white">
-                LIVE • ONLINE
-              </span>
-              <span class="absolute bottom-3 left-3 px-2 py-0.5 rounded text-xs bg-black/60 text-white">
-                Линия подсчета: Активна
-              </span>
-            </div>
-            <div class="p-5 space-y-3">
-              <div class="flex items-center justify-between">
-                <div>
-                  <h4 class="font-bold text-slate-900 text-sm">Камера 1 — Главный Вход</h4>
-                  <p class="text-xs text-slate-500">Зона: Вход / Выход • Трафик</p>
-                </div>
-                <button onclick="runTestSnapshot(1)" class="px-2.5 py-1 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded font-medium">
-                  AI Анализ
-                </button>
-              </div>
-              <div class="text-xs text-slate-600 bg-slate-50 p-2.5 rounded font-mono truncate">
-                rtsp://admin:****@192.168.1.101:554/Streaming/Channels/101
-              </div>
-            </div>
-          </div>
-
-          <!-- Camera Card 2: Checkout -->
-          <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
-            <div class="relative bg-slate-900 h-48 flex items-center justify-center">
-              <img src="/api/v1/cameras/2/snapshot" alt="Checkout Feed" class="w-full h-full object-cover">
-              <span class="absolute top-3 left-3 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-500 text-white">
-                LIVE • ONLINE
-              </span>
-              <span class="absolute top-3 right-3 px-2 py-0.5 rounded text-xs font-semibold bg-indigo-500 text-white flex items-center gap-1">
-                <i data-lucide="mic" class="w-3 h-3"></i> Аудио Активно
-              </span>
-            </div>
-            <div class="p-5 space-y-3">
-              <div class="flex items-center justify-between">
-                <div>
-                  <h4 class="font-bold text-slate-900 text-sm">Камера 2 — Зона Кассы</h4>
-                  <p class="text-xs text-slate-500">Зона: Касса • Детекция покупок + Поведение кассира</p>
-                </div>
-                <button onclick="runTestSnapshot(2)" class="px-2.5 py-1 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded font-medium">
-                  AI Анализ
-                </button>
-              </div>
-              <div class="text-xs text-slate-600 bg-slate-50 p-2.5 rounded font-mono truncate">
-                rtsp://admin:****@192.168.1.102:554/Streaming/Channels/101
-              </div>
-            </div>
-          </div>
+          <!-- Dynamically populated via JS -->
         </div>
       </section>
 
@@ -313,7 +439,7 @@
                 <input id="scan-subnet-input" type="text" value="192.168.1" class="w-full text-xs px-3 py-2 border rounded-lg focus:ring-1 focus:ring-indigo-500">
               </div>
             </div>
-            <button onclick="scanNetworkSubnet()" class="mt-4 w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold">
+            <button onclick="scanNetworkSubnet()" class="mt-4 w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition">
               Запустить автосканирование
             </button>
           </div>
@@ -331,14 +457,14 @@
                 Загрузите готовый список сотен камер (название, RTSP ссылка, зона, микрофон).
               </p>
               <div class="p-3 bg-slate-50 border border-dashed border-slate-300 rounded-lg text-center">
-                <input type="file" id="csv-file-input" class="text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-slate-200">
+                <input type="file" id="csv-file-input" accept=".csv" class="text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-slate-200">
               </div>
             </div>
             <div class="mt-4 flex gap-2">
-              <a href="/api/v1/cameras/template.csv" download class="flex-1 text-center py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold">
+              <a href="/api/v1/cameras/template.csv" download class="flex-1 text-center py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition">
                 Скачать шаблон
               </a>
-              <button onclick="uploadCsvCameras()" class="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold">
+              <button onclick="uploadCsvCameras()" class="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition">
                 Загрузить
               </button>
             </div>
@@ -360,7 +486,7 @@
                 python braincam_agent.py
               </div>
             </div>
-            <a href="/edge_agent/braincam_agent.py" download class="mt-4 block text-center w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold">
+            <a href="/edge_agent/braincam_agent.py" download class="mt-4 block text-center w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold transition">
               Скачать Edge Agent (.py)
             </a>
           </div>
@@ -370,6 +496,266 @@
         <div id="scan-results-card" class="bg-white p-5 rounded-xl border border-slate-200 hidden">
           <h4 class="font-bold text-slate-900 text-sm mb-3">Найденные устройства в сети</h4>
           <div id="scan-results-list" class="space-y-2 text-xs"></div>
+        </div>
+
+        <!-- ================= VENDOR CAMERA RTSP GUIDE & CHEAT SHEET ================= -->
+        <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-xs space-y-6">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div>
+              <h4 class="font-bold text-slate-900 text-base flex items-center gap-2 lang-text" data-ru="Справочник форматов RTSP для камер (Hikvision, Dahua, Uniview, XM)" data-uz="Kameralar uchun RTSP formatlari qo'llanmasi (Hikvision, Dahua, Uniview, XM)">
+                <i data-lucide="book-open" class="w-5 h-5 text-indigo-600"></i>
+                Справочник форматов RTSP для камер (Hikvision, Dahua, Uniview, XM)
+              </h4>
+              <p class="text-xs text-slate-500 mt-0.5 lang-text" data-ru="Готовые форматы ссылок RTSP, заводские IP/порты и рекомендации по подключению видеопотоков к AI" data-uz="Tayyor RTSP havolalari, zavod IP/portlari va AI uchun video oqimlarini ulash bo'yicha tavsiyalar">
+                Готовые форматы ссылок RTSP, заводские IP/порты и рекомендации по подключению видеопотоков к AI
+              </p>
+            </div>
+          </div>
+
+          <!-- Vendor Grid: 4 Major Brands -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+            <!-- Brand 1: Hikvision / HiWatch / Ezviz -->
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-rose-600 text-white">Hikvision</span>
+                  <span class="text-xs font-bold text-slate-800">Hikvision / HiWatch / Ezviz</span>
+                </div>
+                <span class="text-[11px] text-slate-500 font-mono">Порт: 554, 8000</span>
+              </div>
+              <div class="text-[11px] text-slate-600 space-y-1.5">
+                <div>
+                  <span class="font-semibold text-slate-700">Субпоток (AI рекомендация):</span>
+                  <div class="flex items-center gap-1 mt-0.5">
+                    <input type="text" readonly value="rtsp://admin:pass@IP:554/Streaming/Channels/102" class="flex-1 px-2 py-1 bg-white border rounded font-mono text-[10px] text-slate-800 select-all" id="hik-sub-input">
+                    <button onclick="copyVendorTemplate('hik-sub-input')" class="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded text-[10px] font-semibold">Копировать</button>
+                  </div>
+                </div>
+                <div>
+                  <span class="font-semibold text-slate-700">Основной поток (1080p/4K):</span>
+                  <div class="flex items-center gap-1 mt-0.5">
+                    <input type="text" readonly value="rtsp://admin:pass@IP:554/Streaming/Channels/101" class="flex-1 px-2 py-1 bg-white border rounded font-mono text-[10px] text-slate-800 select-all" id="hik-main-input">
+                    <button onclick="copyVendorTemplate('hik-main-input')" class="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded text-[10px] font-semibold">Копировать</button>
+                  </div>
+                </div>
+                <p class="text-[10px] text-slate-500 pt-1">
+                  💡 <b>Инструкция:</b> В веб-интерфейсе камеры (<code>192.168.1.64</code>): <i>Настройки → Сеть → Доп. настройки → Протокол интеграции → Включить ONVIF</i> и создайте медиа-пользователя.
+                </p>
+              </div>
+            </div>
+
+            <!-- Brand 2: Dahua / Imou -->
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-red-600 text-white">Dahua</span>
+                  <span class="text-xs font-bold text-slate-800">Dahua / Imou</span>
+                </div>
+                <span class="text-[11px] text-slate-500 font-mono">Порт: 554, 37777</span>
+              </div>
+              <div class="text-[11px] text-slate-600 space-y-1.5">
+                <div>
+                  <span class="font-semibold text-slate-700">Субпоток (AI рекомендация):</span>
+                  <div class="flex items-center gap-1 mt-0.5">
+                    <input type="text" readonly value="rtsp://admin:pass@IP:554/cam/realmonitor?channel=1&subtype=1" class="flex-1 px-2 py-1 bg-white border rounded font-mono text-[10px] text-slate-800 select-all" id="dahua-sub-input">
+                    <button onclick="copyVendorTemplate('dahua-sub-input')" class="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded text-[10px] font-semibold">Копировать</button>
+                  </div>
+                </div>
+                <div>
+                  <span class="font-semibold text-slate-700">Основной поток:</span>
+                  <div class="flex items-center gap-1 mt-0.5">
+                    <input type="text" readonly value="rtsp://admin:pass@IP:554/cam/realmonitor?channel=1&subtype=0" class="flex-1 px-2 py-1 bg-white border rounded font-mono text-[10px] text-slate-800 select-all" id="dahua-main-input">
+                    <button onclick="copyVendorTemplate('dahua-main-input')" class="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded text-[10px] font-semibold">Копировать</button>
+                  </div>
+                </div>
+                <p class="text-[10px] text-slate-500 pt-1">
+                  💡 <b>Инструкция:</b> Заводской IP <code>192.168.1.108</code>. В веб-интерфейсе: <i>Setting → Safety → System Service → убедитесь, что RTSP включен</i>.
+                </p>
+              </div>
+            </div>
+
+            <!-- Brand 3: Uniview (UNV) -->
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-600 text-white">Uniview</span>
+                  <span class="text-xs font-bold text-slate-800">Uniview (UNV)</span>
+                </div>
+                <span class="text-[11px] text-slate-500 font-mono">Порт: 554, 80</span>
+              </div>
+              <div class="text-[11px] text-slate-600 space-y-1.5">
+                <div>
+                  <span class="font-semibold text-slate-700">Субпоток (AI рекомендация):</span>
+                  <div class="flex items-center gap-1 mt-0.5">
+                    <input type="text" readonly value="rtsp://admin:pass@IP:554/unicast/c1/s1/live" class="flex-1 px-2 py-1 bg-white border rounded font-mono text-[10px] text-slate-800 select-all" id="unv-sub-input">
+                    <button onclick="copyVendorTemplate('unv-sub-input')" class="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded text-[10px] font-semibold">Копировать</button>
+                  </div>
+                </div>
+                <div>
+                  <span class="font-semibold text-slate-700">Основной поток:</span>
+                  <div class="flex items-center gap-1 mt-0.5">
+                    <input type="text" readonly value="rtsp://admin:pass@IP:554/unicast/c1/s0/live" class="flex-1 px-2 py-1 bg-white border rounded font-mono text-[10px] text-slate-800 select-all" id="unv-main-input">
+                    <button onclick="copyVendorTemplate('unv-main-input')" class="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded text-[10px] font-semibold">Копировать</button>
+                  </div>
+                </div>
+                <p class="text-[10px] text-slate-500 pt-1">
+                  💡 <b>Инструкция:</b> Заводской IP <code>192.168.1.13</code>. Параметр <code>c1</code> означает канал 1, <code>s0</code> — поток 1, <code>s1</code> — субпоток.
+                </p>
+              </div>
+            </div>
+
+            <!-- Brand 4: Xiongmai / XM / XMeye -->
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-600 text-white">XMeye</span>
+                  <span class="text-xs font-bold text-slate-800">Xiongmai (XM / XMeye / CMS)</span>
+                </div>
+                <span class="text-[11px] text-slate-500 font-mono">Порт: 554, 34567</span>
+              </div>
+              <div class="text-[11px] text-slate-600 space-y-1.5">
+                <div>
+                  <span class="font-semibold text-slate-700">Субпоток (AI рекомендация):</span>
+                  <div class="flex items-center gap-1 mt-0.5">
+                    <input type="text" readonly value="rtsp://admin:pass@IP:554/user=admin&password=pass&channel=1&stream=1.sdp?" class="flex-1 px-2 py-1 bg-white border rounded font-mono text-[10px] text-slate-800 select-all" id="xm-sub-input">
+                    <button onclick="copyVendorTemplate('xm-sub-input')" class="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded text-[10px] font-semibold">Копировать</button>
+                  </div>
+                </div>
+                <div>
+                  <span class="font-semibold text-slate-700">Основной поток:</span>
+                  <div class="flex items-center gap-1 mt-0.5">
+                    <input type="text" readonly value="rtsp://admin:pass@IP:554/user=admin&password=pass&channel=1&stream=0.sdp?" class="flex-1 px-2 py-1 bg-white border rounded font-mono text-[10px] text-slate-800 select-all" id="xm-main-input">
+                    <button onclick="copyVendorTemplate('xm-main-input')" class="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded text-[10px] font-semibold">Копировать</button>
+                  </div>
+                </div>
+                <p class="text-[10px] text-slate-500 pt-1">
+                  💡 <b>Инструкция:</b> Заводской IP <code>192.168.1.10</code>. Самые распространенные китайские NVR-видеорегистраторы в СНГ.
+                </p>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Interactive RTSP URL Builder -->
+          <div class="p-4 bg-indigo-50/60 border border-indigo-100 rounded-xl space-y-3">
+            <h5 class="font-bold text-slate-900 text-xs flex items-center gap-2">
+              <i data-lucide="wrench" class="w-4 h-4 text-indigo-600"></i>
+              Интерактивный конструктор RTSP URL
+            </h5>
+            <div class="grid grid-cols-2 md:grid-cols-6 gap-2 text-xs">
+              <div>
+                <label class="block text-[11px] text-slate-600 mb-1">Бренд:</label>
+                <select id="builder-brand" onchange="updateRtspBuilder()" class="w-full px-2 py-1.5 bg-white border rounded text-xs">
+                  <option value="hikvision">Hikvision</option>
+                  <option value="dahua">Dahua</option>
+                  <option value="uniview">Uniview</option>
+                  <option value="xiongmai">Xiongmai/XM</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-600 mb-1">IP-адрес:</label>
+                <input id="builder-ip" type="text" value="192.168.1.100" oninput="updateRtspBuilder()" class="w-full px-2 py-1.5 bg-white border rounded text-xs font-mono">
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-600 mb-1">Порт:</label>
+                <input id="builder-port" type="number" value="554" oninput="updateRtspBuilder()" class="w-full px-2 py-1.5 bg-white border rounded text-xs font-mono">
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-600 mb-1">Логин:</label>
+                <input id="builder-user" type="text" value="admin" oninput="updateRtspBuilder()" class="w-full px-2 py-1.5 bg-white border rounded text-xs">
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-600 mb-1">Пароль:</label>
+                <input id="builder-pass" type="text" value="12345" oninput="updateRtspBuilder()" class="w-full px-2 py-1.5 bg-white border rounded text-xs">
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-600 mb-1">Поток:</label>
+                <select id="builder-sub" onchange="updateRtspBuilder()" class="w-full px-2 py-1.5 bg-white border rounded text-xs">
+                  <option value="sub">Субпоток (AI)</option>
+                  <option value="main">Основной (HQ)</option>
+                </select>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 pt-1">
+              <input id="builder-result-url" type="text" readonly class="flex-1 px-3 py-2 bg-white border border-indigo-200 rounded-lg font-mono text-xs text-indigo-900 select-all font-semibold">
+              <button onclick="copyRtspBuilderResult()" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition">
+                <i data-lucide="copy" class="w-3.5 h-3.5"></i> Скопировать
+              </button>
+              <button onclick="useBuiltRtspInModal()" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition">
+                <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> Подключить
+              </button>
+            </div>
+          </div>
+
+          <!-- ================= EDGE AGENT COMPREHENSIVE GUIDE ================= -->
+          <div class="p-5 bg-gradient-to-r from-purple-50 via-indigo-50 to-white border border-purple-200 rounded-xl space-y-4">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-lg bg-purple-600 text-white flex items-center justify-center font-bold">
+                  <i data-lucide="terminal" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <h5 class="font-bold text-slate-900 text-sm lang-text" data-ru="Подключение без белого IP: Пошаговое руководство Local Edge Agent" data-uz="Oq IP bo'lmaganda ulash: Local Edge Agent bosqichma-bosqich qo'llanmasi">
+                    Подключение без белого IP: Пошаговое руководство Local Edge Agent
+                  </h5>
+                  <p class="text-[11px] text-slate-500">
+                    Решает проблему закрытой локальной сети (192.168.x.x). Агент работает на ПК кассира, сервере магазина или мини-ПК.
+                  </p>
+                </div>
+              </div>
+              <a href="/edge_agent/braincam_agent.py" download class="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i> Скачать agent.py
+              </a>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+              <div class="bg-white p-3.5 rounded-lg border border-purple-100 shadow-2xs space-y-2">
+                <div class="flex items-center gap-1.5 font-bold text-purple-900">
+                  <span class="w-5 h-5 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-[10px]">1</span>
+                  <span>Скачать скрипт</span>
+                </div>
+                <div class="p-2 bg-slate-900 text-emerald-400 font-mono text-[11px] rounded select-all">
+                  curl -O http://localhost:8000/edge_agent/braincam_agent.py
+                </div>
+                <p class="text-[10px] text-slate-500">
+                  Или нажмите кнопку «Скачать agent.py» и положите файл в любую папку.
+                </p>
+              </div>
+
+              <div class="bg-white p-3.5 rounded-lg border border-purple-100 shadow-2xs space-y-2">
+                <div class="flex items-center gap-1.5 font-bold text-purple-900">
+                  <span class="w-5 h-5 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-[10px]">2</span>
+                  <span>Установить зависимости</span>
+                </div>
+                <div class="p-2 bg-slate-900 text-emerald-400 font-mono text-[11px] rounded select-all">
+                  pip install opencv-python requests
+                </div>
+                <p class="text-[10px] text-slate-500">
+                  Требуется Python 3.8+ на кассовом компьютере (Windows, Linux, macOS).
+                </p>
+              </div>
+
+              <div class="bg-white p-3.5 rounded-lg border border-purple-100 shadow-2xs space-y-2">
+                <div class="flex items-center gap-1.5 font-bold text-purple-900">
+                  <span class="w-5 h-5 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-[10px]">3</span>
+                  <span>Запустить агент</span>
+                </div>
+                <div class="p-2 bg-slate-900 text-emerald-400 font-mono text-[10px] rounded select-all break-all">
+                  python braincam_agent.py --server http://localhost:8000 --camera-id 1 --rtsp "rtsp://admin:pass@192.168.1.64:554/Streaming/Channels/102"
+                </div>
+                <p class="text-[10px] text-slate-500">
+                  Агент каждые 1.0 сек передает кадры и статус online в облако.
+                </p>
+              </div>
+            </div>
+
+            <div class="p-3 bg-white/80 rounded-lg border border-purple-100 text-[11px] text-slate-600 flex items-center justify-between">
+              <div>
+                <b>Автозапуск при старте Windows / Linux:</b> В Windows добавьте ярлык в <code>shell:startup</code> или создайте задачу в Планировщике. В Linux используйте <code>systemd</code> сервис.
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -425,13 +811,13 @@
             </p>
             <div class="space-y-3">
               <input type="file" id="audio-test-input" accept="audio/*" class="text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:bg-indigo-50 file:text-indigo-700">
-              <button onclick="testAudioRecognition()" class="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold">
+              <button onclick="testAudioRecognition()" class="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition">
                 Запустить анализ аудио через Gemini
               </button>
             </div>
             <div id="audio-result-box" class="p-3 bg-slate-50 rounded-lg text-xs space-y-1 hidden">
               <div class="font-bold text-slate-800" id="audio-res-title">Результат анализа:</div>
-              <p id="audio-res-desc" class="text-slate-600"></p>
+              <p id="audio-res-desc" class="text-slate-600 whitespace-pre-line"></p>
             </div>
           </div>
         </div>
@@ -478,7 +864,7 @@
 <i>BrainCam AI — Делаем каждую камеру интеллектуальной!</i>
           </div>
 
-          <button onclick="triggerTelegramReport()" class="w-full mt-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2">
+          <button onclick="triggerTelegramReport()" class="w-full mt-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition">
             <i data-lucide="send" class="w-3.5 h-3.5"></i>
             Отправить прямо сейчас в Telegram
           </button>
@@ -488,66 +874,200 @@
     </main>
   </div>
 
-  <!-- Scripts -->
+  <!-- ================= MODAL: ADD CAMERA ================= -->
+  <div id="add-camera-modal" class="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 hidden">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+        <h4 class="font-bold text-slate-900 text-base lang-text" data-ru="Подключить новую камеру" data-uz="Yangi kamera ulash">
+          Подключить новую камеру
+        </h4>
+        <button onclick="closeAddCameraModal()" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="add-camera-form" onsubmit="saveNewCamera(event)" class="space-y-4 text-xs">
+        <div>
+          <label class="block font-medium text-slate-700 mb-1 lang-text" data-ru="Название камеры:" data-uz="Kamera nomi:">Название камеры:</label>
+          <input id="new-cam-name" type="text" required placeholder="Например: Камера 3 — Вход со двора" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block font-medium text-slate-700 mb-1 lang-text" data-ru="Бренд камеры (автошаблон RTSP):" data-uz="Kamera brendi (RTSP shabloni):">Бренд камеры (автошаблон RTSP):</label>
+          <select id="new-cam-brand" onchange="applyVendorTemplateToModal()" class="w-full px-3 py-2 border rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            <option value="custom">-- Ручной ввод RTSP URL / Custom --</option>
+            <option value="hikvision">Hikvision / HiWatch / Ezviz (Субпоток Channels/102)</option>
+            <option value="dahua">Dahua / Imou (Субпоток subtype=1)</option>
+            <option value="uniview">Uniview / UNV (Субпоток unicast/c1/s1/live)</option>
+            <option value="xiongmai">Xiongmai / XM / XMeye (Субпоток stream=1.sdp?)</option>
+            <option value="demo">Тестовая демо-камера (demo://entrance)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block font-medium text-slate-700 mb-1">RTSP URL:</label>
+          <input id="new-cam-url" type="text" required placeholder="rtsp://admin:pass@192.168.1.103:554/live" class="w-full px-3 py-2 border rounded-lg font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+          <p class="text-[11px] text-slate-400 mt-1">Поддерживаются RTSP потоки (Hikvision, Dahua, Uniview, XM), HTTP JPEG или demo://</p>
+        </div>
+
+        <div>
+          <label class="block font-medium text-slate-700 mb-1 lang-text" data-ru="Зона и назначение детекции:" data-uz="Zona va vazifasi:">Зона и назначение детекции:</label>
+          <select id="new-cam-type" class="w-full px-3 py-2 border rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            <option value="entrance">Главный вход (Подсчет трафика и посетителей)</option>
+            <option value="checkout">Зона кассы (Детекция покупок, очереди, контроль кассира)</option>
+            <option value="hall">Торговый зал (Плотность клиентов, тепловая карта)</option>
+          </select>
+        </div>
+
+        <div class="flex items-center gap-2 pt-1">
+          <input id="new-cam-audio" type="checkbox" class="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+          <label for="new-cam-audio" class="font-medium text-slate-700 cursor-pointer lang-text" data-ru="Включить аудиомониторинг жалоб (микрофон)" data-uz="Shikoyatlar audio tahlilini yoqish (mikrofon)">
+            Включить аудиомониторинг жалоб (микрофон)
+          </label>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
+          <button type="button" onclick="closeAddCameraModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold transition">
+            Отмена
+          </button>
+          <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold shadow-sm transition">
+            Подключить камеру
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: CAMERA AI ANALYSIS RESULT ================= -->
+  <div id="camera-ai-modal" class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 hidden">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+      <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+        <div class="flex items-center gap-2">
+          <i data-lucide="sparkles" class="w-5 h-5 text-indigo-600"></i>
+          <h4 id="cam-ai-modal-title" class="font-bold text-slate-900 text-base">Мгновенный AI Анализ Кадра</h4>
+        </div>
+        <button onclick="closeCameraAiModal()" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="relative rounded-lg overflow-hidden border border-slate-200 bg-slate-900 max-h-52 flex items-center justify-center">
+        <img id="cam-ai-modal-img" src="" alt="Analyzed Frame" class="w-full h-full object-cover">
+        <span class="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-600 text-white">
+          Gemini Vision Inferred
+        </span>
+      </div>
+
+      <div id="cam-ai-modal-content" class="space-y-2.5 text-xs">
+        <!-- Injected via JS -->
+      </div>
+
+      <div class="flex justify-end pt-2">
+        <button onclick="closeCameraAiModal()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-semibold text-xs">
+          Закрыть
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= FLOATING AI CHAT BUTTON ================= -->
+  <button 
+    onclick="switchTab('ai-chat')" 
+    title="Спросить AI BrainCam"
+    class="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white shadow-xl flex items-center justify-center transition-transform hover:scale-105 z-30 group"
+  >
+    <i data-lucide="bot-message-square" class="w-6 h-6"></i>
+    <span class="absolute right-16 px-2.5 py-1 rounded bg-slate-900 text-white text-xs font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition shadow-md pointer-events-none">
+      AI Консультант
+    </span>
+  </button>
+
+  <!-- ================= SCRIPTS ================= -->
   <script>
     let currentLang = 'ru';
+    let trafficChart = null;
 
-    // Initialize Lucide icons
-    lucide.createIcons();
-
-    // Chart.js instance
-    const ctx = document.getElementById('trafficChart').getContext('2d');
-    const trafficChart = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: ['09:00', '11:00', '13:00', '15:00', '17:00', '18:00', '19:00', '21:00'],
-        datasets: [
-          {
-            label: 'Посетители (Входы)',
-            data: [12, 18, 24, 19, 31, 44, 38, 14],
-            backgroundColor: 'rgba(99, 102, 241, 0.85)',
-            borderRadius: 6
-          },
-          {
-            label: 'Покупки (Касса)',
-            data: [3, 5, 8, 5, 9, 15, 11, 4],
-            backgroundColor: 'rgba(16, 185, 129, 0.85)',
-            borderRadius: 6
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } }
+    // Initialize Chart.js
+    function initTrafficChart() {
+      const ctx = document.getElementById('trafficChart').getContext('2d');
+      trafficChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['09:00', '11:00', '13:00', '15:00', '17:00', '18:00', '19:00', '21:00'],
+          datasets: [
+            {
+              label: 'Посетители (Входы)',
+              data: [12, 18, 24, 19, 31, 44, 38, 14],
+              backgroundColor: 'rgba(99, 102, 241, 0.85)',
+              borderRadius: 6
+            },
+            {
+              label: 'Покупки (Касса)',
+              data: [3, 5, 8, 5, 9, 15, 11, 4],
+              backgroundColor: 'rgba(16, 185, 129, 0.85)',
+              borderRadius: 6
+            }
+          ]
         },
-        scales: {
-          y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
-          x: { grid: { display: false } }
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } }
+          },
+          scales: {
+            y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+            x: { grid: { display: false } }
+          }
         }
-      }
-    });
+      });
+    }
 
+    // Tab switcher
     function switchTab(tabName) {
-      const sections = ['dashboard', 'cameras', 'mass-integration', 'audio-complaints', 'telegram-digest'];
+      const sections = ['dashboard', 'ai-chat', 'cameras', 'mass-integration', 'audio-complaints', 'telegram-digest'];
       sections.forEach(s => {
-        document.getElementById(`section-${s}`).classList.add('hidden');
+        const secEl = document.getElementById(`section-${s}`);
+        if (secEl) secEl.classList.add('hidden');
         const nav = document.getElementById(`nav-${s}`);
         if (nav) {
-          nav.classList.remove('bg-indigo-600', 'text-white');
+          nav.classList.remove('bg-indigo-600', 'text-white', 'shadow-sm');
           nav.classList.add('text-slate-400');
         }
       });
 
-      document.getElementById(`section-${tabName}`).classList.remove('hidden');
+      const activeSec = document.getElementById(`section-${tabName}`);
+      if (activeSec) activeSec.classList.remove('hidden');
+
       const activeNav = document.getElementById(`nav-${tabName}`);
       if (activeNav) {
-        activeNav.classList.add('bg-indigo-600', 'text-white');
+        activeNav.classList.add('bg-indigo-600', 'text-white', 'shadow-sm');
         activeNav.classList.remove('text-slate-400');
+      }
+
+      // Update page title
+      const titles = {
+        'dashboard': { ru: 'Аналитика магазина за сегодня', uz: 'Bugungi do\'kon tahlili' },
+        'ai-chat': { ru: 'AI Консультант магазина BrainCam', uz: 'BrainCam do\'kon AI maslahatchisi' },
+        'cameras': { ru: 'Управление камерами и RTSP потоками', uz: 'Kameralar va RTSP oqimlarini boshqarish' },
+        'mass-integration': { ru: 'Массовая интеграция камер', uz: 'Kameralarni ommaviy integratsiya qilish' },
+        'audio-complaints': { ru: 'Голосовой анализ и контроль жалоб', uz: 'Ovozli tahlil va shikoyatlar nazorati' },
+        'telegram-digest': { ru: 'Сводка продавцу в Telegram', uz: 'Sotuvchiga Telegram xabarnomasi' }
+      };
+
+      if (titles[tabName]) {
+        document.getElementById('page-title').innerText = titles[tabName][currentLang];
+      }
+
+      if (tabName === 'cameras') {
+        loadCameras();
+      } else if (tabName === 'ai-chat') {
+        const input = document.getElementById('chat-input');
+        if (input) setTimeout(() => input.focus(), 150);
       }
     }
 
+    // Language switcher
     function setLanguage(lang) {
       currentLang = lang;
       document.querySelectorAll('.lang-text').forEach(el => {
@@ -556,57 +1076,534 @@
         }
       });
 
-      // Update button styling
       if (lang === 'uz') {
         document.getElementById('btn-lang-uz').className = 'px-2 py-1 text-xs rounded font-medium bg-indigo-600 text-white';
         document.getElementById('btn-lang-ru').className = 'px-2 py-1 text-xs rounded font-medium text-slate-400 hover:text-white';
-        trafficChart.data.datasets[0].label = 'Tashrifchilar (Kirishlar)';
-        trafficChart.data.datasets[1].label = 'Xaridlar (Kassa)';
-        trafficChart.update();
+        if (trafficChart) {
+          trafficChart.data.datasets[0].label = 'Tashrifchilar (Kirishlar)';
+          trafficChart.data.datasets[1].label = 'Xaridlar (Kassa)';
+          trafficChart.update();
+        }
+        document.getElementById('chat-input').placeholder = "Tashriflar, konversiya, shikoyatlar yoki xodimlar haqida so'rang...";
       } else {
         document.getElementById('btn-lang-ru').className = 'px-2 py-1 text-xs rounded font-medium bg-indigo-600 text-white';
         document.getElementById('btn-lang-uz').className = 'px-2 py-1 text-xs rounded font-medium text-slate-400 hover:text-white';
-        trafficChart.data.datasets[0].label = 'Посетители (Входы)';
-        trafficChart.data.datasets[1].label = 'Покупки (Касса)';
-        trafficChart.update();
+        if (trafficChart) {
+          trafficChart.data.datasets[0].label = 'Посетители (Входы)';
+          trafficChart.data.datasets[1].label = 'Покупки (Касса)';
+          trafficChart.update();
+        }
+        document.getElementById('chat-input').placeholder = "Задайте вопрос о трафике, конверсии, жалобах или персонале...";
       }
 
-      // Notify backend of language preference
       fetch('/api/v1/settings/language', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ language: lang })
-      });
+      }).catch(err => console.warn(err));
     }
 
-    async function triggerTelegramReport() {
-      const resp = await fetch('/api/v1/reports/dispatch-telegram', { method: 'POST' });
-      const data = await resp.json();
-      alert(data.message || (currentLang === 'uz' ? 'Hisobot Telegramga yuborildi!' : 'Отчет успешно отправлен в Telegram!'));
+    // Refresh KPI Analytics from /api/v1/analytics/daily
+    async function refreshAnalytics() {
+      try {
+        const resp = await fetch('/api/v1/analytics/daily');
+        if (!resp.ok) return;
+        const data = await resp.json();
+
+        // Update KPIs
+        if (data.visitors_count !== undefined) {
+          document.getElementById('kpi-visitors').innerText = data.visitors_count;
+        }
+        if (data.buyers_count !== undefined) {
+          document.getElementById('kpi-buyers').innerText = data.buyers_count;
+        }
+        if (data.conversion_rate !== undefined) {
+          document.getElementById('kpi-conversion').innerText = `${data.conversion_rate}%`;
+        }
+        if (data.peak_hour) {
+          document.getElementById('kpi-peak').innerText = data.peak_hour;
+        }
+        if (data.employee_score !== undefined) {
+          document.getElementById('kpi-employee').innerHTML = `${data.employee_score} <span class="text-xs text-slate-400 font-normal">/ 5.0</span>`;
+        }
+        if (data.complaints_count !== undefined) {
+          document.getElementById('kpi-complaints').innerText = data.complaints_count;
+        }
+
+        // Update chart if hourly_traffic is present
+        if (data.hourly_traffic && trafficChart) {
+          const hours = Object.keys(data.hourly_traffic);
+          const values = Object.values(data.hourly_traffic);
+          trafficChart.data.labels = hours;
+          trafficChart.data.datasets[0].data = values;
+          trafficChart.update();
+        }
+      } catch (err) {
+        console.error("Failed to refresh analytics:", err);
+      }
     }
 
+    // Load cameras dynamically from /api/v1/cameras
+    async function loadCameras() {
+      const container = document.getElementById('cameras-grid');
+      try {
+        const resp = await fetch('/api/v1/cameras');
+        if (!resp.ok) return;
+        const cameras = await resp.json();
+
+        if (!cameras || cameras.length === 0) {
+          container.innerHTML = `
+            <div class="col-span-2 text-center py-12 bg-white rounded-xl border border-slate-200">
+              <i data-lucide="video-off" class="w-10 h-10 text-slate-300 mx-auto mb-2"></i>
+              <p class="text-slate-600 font-medium text-sm">Камеры еще не добавлены</p>
+              <button onclick="openAddCameraModal()" class="mt-3 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-semibold">
+                Добавить первую камеру
+              </button>
+            </div>
+          `;
+          lucide.createIcons();
+          return;
+        }
+
+        const typeLabels = {
+          entrance: { ru: 'Вход / Выход • Трафик', uz: 'Kirish / Chiqish • Trafik' },
+          checkout: { ru: 'Зона Кассы • Детекция покупок + Поведение кассира', uz: 'Kassa zonasi • Xaridlar va kassir nazorati' },
+          hall: { ru: 'Торговый зал • Плотность клиентов', uz: 'Savdo zali • Mijozlar oqimi' }
+        };
+
+        const cacheBust = Date.now();
+        container.innerHTML = cameras.map(cam => {
+          const typeDesc = typeLabels[cam.camera_type] ? typeLabels[cam.camera_type][currentLang] : cam.camera_type;
+          return `
+            <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs hover:border-indigo-200 transition">
+              <div class="relative bg-slate-900 h-48 flex items-center justify-center overflow-hidden group">
+                <a href="/api/v1/cameras/${cam.id}/snapshot" target="_blank" class="w-full h-full block cursor-pointer" title="Нажмите для открытия снимка в полном размере">
+                  <img id="cam-snap-${cam.id}" src="/api/v1/cameras/${cam.id}/snapshot?t=${cacheBust}" alt="${cam.name}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+                </a>
+                <span class="absolute top-3 left-3 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-500 text-white flex items-center gap-1.5 shadow-xs pointer-events-none">
+                  <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span> LIVE • ONLINE
+                </span>
+                ${cam.has_audio ? `
+                  <span class="absolute top-3 right-3 px-2 py-0.5 rounded text-xs font-semibold bg-indigo-500 text-white flex items-center gap-1 shadow-xs pointer-events-none">
+                    <i data-lucide="mic" class="w-3 h-3"></i> Аудио Активно
+                  </span>
+                ` : ''}
+                <span class="absolute bottom-3 left-3 px-2 py-0.5 rounded text-xs bg-black/60 text-white backdrop-blur-xs pointer-events-none">
+                  Зона: ${cam.camera_type.toUpperCase()}
+                </span>
+              </div>
+              <div class="p-5 space-y-3">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <h4 class="font-bold text-slate-900 text-sm">${cam.name}</h4>
+                    <p class="text-xs text-slate-500">${typeDesc}</p>
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <button onclick="refreshCameraSnapshot(${cam.id})" class="px-2.5 py-1 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded font-medium flex items-center gap-1 transition" title="Получить свежий снимок с камеры">
+                      <i data-lucide="camera" class="w-3 h-3 text-slate-600"></i>
+                      <span class="lang-text" data-ru="Снимок" data-uz="Kadr">Снимок</span>
+                    </button>
+                    <button onclick="runCameraAiAnalysis(${cam.id})" class="px-2.5 py-1 text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded font-semibold flex items-center gap-1 transition">
+                      <i data-lucide="sparkles" class="w-3 h-3"></i> AI Анализ
+                    </button>
+                    <button onclick="deleteCamera(${cam.id})" title="Удалить камеру" class="p-1 text-rose-400 hover:text-rose-600 rounded hover:bg-rose-50 transition">
+                      <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                    </button>
+                  </div>
+                </div>
+                <div class="text-xs text-slate-600 bg-slate-50 p-2.5 rounded font-mono truncate border border-slate-100">
+                  ${cam.rtsp_url}
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        lucide.createIcons();
+      } catch (err) {
+        console.error("Failed to load cameras:", err);
+      }
+    }
+
+    // Refresh single camera snapshot
+    function refreshCameraSnapshot(camId) {
+      const img = document.getElementById(`cam-snap-${camId}`);
+      if (img) {
+        img.src = `/api/v1/cameras/${camId}/snapshot?t=${Date.now()}`;
+      }
+    }
+
+    // Modal Add Camera handlers
+    function openAddCameraModal() {
+      document.getElementById('add-camera-modal').classList.remove('hidden');
+    }
+
+    function closeAddCameraModal() {
+      document.getElementById('add-camera-modal').classList.add('hidden');
+      document.getElementById('add-camera-form').reset();
+    }
+
+    function applyVendorTemplateToModal() {
+      const brand = document.getElementById('new-cam-brand').value;
+      const urlInput = document.getElementById('new-cam-url');
+      if (brand === 'hikvision') {
+        urlInput.value = 'rtsp://admin:admin123@192.168.1.64:554/Streaming/Channels/102';
+      } else if (brand === 'dahua') {
+        urlInput.value = 'rtsp://admin:admin123@192.168.1.108:554/cam/realmonitor?channel=1&subtype=1';
+      } else if (brand === 'uniview') {
+        urlInput.value = 'rtsp://admin:admin123@192.168.1.13:554/unicast/c1/s1/live';
+      } else if (brand === 'xiongmai') {
+        urlInput.value = 'rtsp://admin:admin123@192.168.1.10:554/user=admin&password=admin123&channel=1&stream=1.sdp?';
+      } else if (brand === 'demo') {
+        urlInput.value = 'demo://entrance';
+      }
+    }
+
+    function copyVendorTemplate(inputId) {
+      const el = document.getElementById(inputId);
+      if (el) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(el.value).then(() => {
+            alert(currentLang === 'uz' ? 'RTSP havola nusxalandi!' : 'Шаблон RTSP скопирован в буфер обмена!');
+          }).catch(() => {
+            el.select();
+            document.execCommand('copy');
+            alert(currentLang === 'uz' ? 'RTSP havola nusxalandi!' : 'Шаблон RTSP скопирован!');
+          });
+        } else {
+          el.select();
+          document.execCommand('copy');
+          alert(currentLang === 'uz' ? 'RTSP havola nusxalandi!' : 'Шаблон RTSP скопирован!');
+        }
+      }
+    }
+
+    function updateRtspBuilder() {
+      const brandEl = document.getElementById('builder-brand');
+      if (!brandEl) return;
+      const brand = brandEl.value;
+      const ip = document.getElementById('builder-ip').value || '192.168.1.100';
+      const port = document.getElementById('builder-port').value || '554';
+      const user = document.getElementById('builder-user').value || 'admin';
+      const pass = document.getElementById('builder-pass').value || '12345';
+      const isSub = document.getElementById('builder-sub').value === 'sub';
+
+      let url = '';
+      if (brand === 'hikvision') {
+        url = `rtsp://${user}:${pass}@${ip}:${port}/Streaming/Channels/${isSub ? '102' : '101'}`;
+      } else if (brand === 'dahua') {
+        url = `rtsp://${user}:${pass}@${ip}:${port}/cam/realmonitor?channel=1&subtype=${isSub ? '1' : '0'}`;
+      } else if (brand === 'uniview') {
+        url = `rtsp://${user}:${pass}@${ip}:${port}/unicast/c1/${isSub ? 's1' : 's0'}/live`;
+      } else if (brand === 'xiongmai') {
+        url = `rtsp://${user}:${pass}@${ip}:${port}/user=${user}&password=${pass}&channel=1&stream=${isSub ? '1' : '0'}.sdp?`;
+      }
+      const resEl = document.getElementById('builder-result-url');
+      if (resEl) resEl.value = url;
+    }
+
+    function copyRtspBuilderResult() {
+      copyVendorTemplate('builder-result-url');
+    }
+
+    function useBuiltRtspInModal() {
+      updateRtspBuilder();
+      const brand = document.getElementById('builder-brand').value;
+      const url = document.getElementById('builder-result-url').value;
+      openAddCameraModal();
+      document.getElementById('new-cam-brand').value = brand;
+      document.getElementById('new-cam-url').value = url;
+      document.getElementById('new-cam-name').value = `Камера ${brand.toUpperCase()}`;
+    }
+
+    async function saveNewCamera(event) {
+      event.preventDefault();
+      const name = document.getElementById('new-cam-name').value;
+      const rtsp_url = document.getElementById('new-cam-url').value;
+      const camera_type = document.getElementById('new-cam-type').value;
+      const has_audio = document.getElementById('new-cam-audio').checked;
+
+      try {
+        const resp = await fetch('/api/v1/cameras', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, rtsp_url, camera_type, has_audio })
+        });
+        if (resp.ok) {
+          closeAddCameraModal();
+          loadCameras();
+          alert(currentLang === 'uz' ? 'Kamera muvaffaqiyatli qo\'shildi!' : 'Камера успешно подключена к системе!');
+        } else {
+          alert('Ошибка при добавлении камеры');
+        }
+      } catch (err) {
+        alert('Сетевая ошибка: ' + err.message);
+      }
+    }
+
+    // Delete Camera
+    async function deleteCamera(camId) {
+      const confirmMsg = currentLang === 'uz' ? 'Haqiqatan ham bu kamerani o\'chirmoqchimisiz?' : 'Вы уверены, что хотите удалить эту камеру?';
+      if (!confirm(confirmMsg)) return;
+
+      try {
+        const resp = await fetch(`/api/v1/cameras/${camId}`, { method: 'DELETE' });
+        if (resp.ok) {
+          loadCameras();
+        } else {
+          alert('Не удалось удалить камеру');
+        }
+      } catch (err) {
+        alert('Ошибка: ' + err.message);
+      }
+    }
+
+    // Pre-fill Add Camera modal from Network Scanner
+    function addFoundCamera(ip) {
+      openAddCameraModal();
+      document.getElementById('new-cam-name').value = `Камера IP ${ip}`;
+      document.getElementById('new-cam-url').value = `rtsp://admin:admin@${ip}:554/Streaming/Channels/101`;
+    }
+
+    // Instant AI Analysis on Camera Snapshot
+    async function runCameraAiAnalysis(camId) {
+      const modal = document.getElementById('camera-ai-modal');
+      const img = document.getElementById('cam-ai-modal-img');
+      const content = document.getElementById('cam-ai-modal-content');
+
+      img.src = `/api/v1/cameras/${camId}/snapshot?t=${Date.now()}`;
+      content.innerHTML = '<div class="text-slate-500 py-3 text-center"><i data-lucide="loader" class="w-5 h-5 animate-spin mx-auto mb-1 text-indigo-600"></i> Обработка кадра моделью Gemini 2.5 Flash...</div>';
+      modal.classList.remove('hidden');
+      lucide.createIcons();
+
+      try {
+        const resp = await fetch(`/api/v1/cameras/${camId}/analyze`, { method: 'POST' });
+        const data = await resp.json();
+        const a = data.analysis;
+
+        content.innerHTML = `
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div class="p-2.5 bg-slate-50 rounded border">
+              <span class="text-slate-500 block">Людей в кадре:</span>
+              <span class="text-base font-bold text-slate-900">${a.people_count ?? 0} чел.</span>
+            </div>
+            <div class="p-2.5 bg-slate-50 rounded border">
+              <span class="text-slate-500 block">Очередь:</span>
+              <span class="text-base font-bold text-slate-900">${a.queue_length ?? 0} чел.</span>
+            </div>
+          </div>
+          ${a.employee_analysis ? `
+            <div class="p-3 bg-indigo-50/70 border border-indigo-100 rounded space-y-1">
+              <div class="flex items-center justify-between font-bold text-slate-900">
+                <span>Персонал на месте:</span>
+                <span class="${a.employee_analysis.staff_present ? 'text-emerald-600' : 'text-rose-600'}">
+                  ${a.employee_analysis.staff_present ? '✅ Присутствует' : '❌ Отсутствует'}
+                </span>
+              </div>
+              <div class="text-slate-600">
+                Статус: <b>${a.employee_analysis.status}</b> • Оценка: <b>${a.employee_analysis.behavior_score}/5.0</b>
+              </div>
+              ${a.employee_analysis.alert_reason ? `<div class="text-rose-600 font-medium">Внимание: ${a.employee_analysis.alert_reason}</div>` : ''}
+            </div>
+          ` : ''}
+          <div class="p-2.5 bg-slate-50 rounded border text-slate-700">
+            <span class="font-bold text-slate-900 block mb-0.5">Описание сцены (Gemini):</span>
+            ${a.scene_description || 'Анализ завершен успешно.'}
+          </div>
+        `;
+      } catch (err) {
+        content.innerHTML = `<div class="text-rose-600 p-2">Ошибка анализа: ${err.message}</div>`;
+      }
+    }
+
+    function closeCameraAiModal() {
+      document.getElementById('camera-ai-modal').classList.add('hidden');
+    }
+
+    // ================= INTERACTIVE AI CHAT LOGIC =================
+    async function handleChatSubmit(event) {
+      if (event) event.preventDefault();
+      const input = document.getElementById('chat-input');
+      const text = input.value.trim();
+      if (!text) return;
+
+      input.value = '';
+      await sendChatMessage(text);
+    }
+
+    async function askQuickPrompt(promptText) {
+      switchTab('ai-chat');
+      const input = document.getElementById('chat-input');
+      input.value = promptText;
+      await sendChatMessage(promptText);
+    }
+
+    async function sendChatMessage(userText) {
+      const messagesContainer = document.getElementById('chat-messages');
+      const typingIndicator = document.getElementById('chat-typing');
+      const sendBtn = document.getElementById('chat-send-btn');
+
+      // 1. Render User Message
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const userHtml = `
+        <div class="flex items-start justify-end gap-3 max-w-2xl ml-auto">
+          <div class="bg-indigo-600 text-white rounded-2xl rounded-tr-sm px-4 py-3 text-xs leading-relaxed space-y-1 shadow-xs">
+            <p>${escapeHtml(userText)}</p>
+            <span class="block text-[10px] text-indigo-200 text-right">${timeStr}</span>
+          </div>
+          <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs shrink-0 border border-indigo-200">
+            Вы
+          </div>
+        </div>
+      `;
+      messagesContainer.insertAdjacentHTML('beforeend', userHtml);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+      // 2. Show Typing Indicator
+      typingIndicator.classList.remove('hidden');
+      if (sendBtn) sendBtn.disabled = true;
+
+      // 3. Post to /api/v1/chat/message
+      try {
+        const resp = await fetch('/api/v1/chat/message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: userText,
+            language: currentLang,
+            store_id: 1
+          })
+        });
+
+        const data = await resp.json();
+        const replyText = data.reply || "Извините, не удалось получить ответ от AI.";
+
+        // Format markdown newlines and bullets
+        const formattedReply = formatAiReply(replyText);
+
+        const aiTimeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const aiHtml = `
+          <div class="flex items-start gap-3 max-w-2xl">
+            <div class="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+              AI
+            </div>
+            <div class="bg-slate-100 text-slate-800 rounded-2xl rounded-tl-sm px-4 py-3 text-xs leading-relaxed space-y-2 border border-slate-200">
+              <div class="space-y-1.5">${formattedReply}</div>
+              <span class="block text-[10px] text-slate-400">${aiTimeStr} • Gemini 2.5 Flash Lite</span>
+            </div>
+          </div>
+        `;
+        messagesContainer.insertAdjacentHTML('beforeend', aiHtml);
+      } catch (err) {
+        const errHtml = `
+          <div class="flex items-start gap-3 max-w-2xl">
+            <div class="w-8 h-8 rounded-lg bg-rose-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+              !
+            </div>
+            <div class="bg-rose-50 text-rose-700 rounded-2xl rounded-tl-sm px-4 py-3 text-xs border border-rose-200">
+              Ошибка соединения с сервером AI: ${err.message}
+            </div>
+          </div>
+        `;
+        messagesContainer.insertAdjacentHTML('beforeend', errHtml);
+      } finally {
+        typingIndicator.classList.add('hidden');
+        if (sendBtn) sendBtn.disabled = false;
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }
+    }
+
+    function formatAiReply(text) {
+      return text
+        .split('\n')
+        .map(line => {
+          line = escapeHtml(line);
+          // Bold markdown **text**
+          line = line.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+          // Bullet points
+          if (line.trim().startsWith('•') || line.trim().startsWith('-')) {
+            return `<div class="pl-2">${line}</div>`;
+          }
+          return line ? `<p>${line}</p>` : '<div class="h-1"></div>';
+        })
+        .join('');
+    }
+
+    function clearChatHistory() {
+      const container = document.getElementById('chat-messages');
+      container.innerHTML = `
+        <div class="text-center py-6 text-slate-400 text-xs">
+          Диалог очищен. Задайте новый вопрос о показателях магазина.
+        </div>
+      `;
+    }
+
+    function escapeHtml(str) {
+      return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    // ================= MASS INTEGRATION & AUDIO TESTERS =================
     async function scanNetworkSubnet() {
       const subnet = document.getElementById('scan-subnet-input').value;
       const resCard = document.getElementById('scan-results-card');
       const resList = document.getElementById('scan-results-list');
       resCard.classList.remove('hidden');
-      resList.innerHTML = '<div class="text-slate-500">⏳ Сканирование подсети ' + subnet + '.0/24...</div>';
+      resList.innerHTML = '<div class="text-slate-500 py-2">⏳ Сканирование подсети ' + subnet + '.0/24...</div>';
 
-      const resp = await fetch(`/api/v1/cameras/scan-subnet?subnet=${subnet}`);
-      const data = await resp.json();
+      try {
+        const resp = await fetch(`/api/v1/cameras/scan-subnet?subnet=${subnet}`);
+        const data = await resp.json();
 
-      if (data.devices && data.devices.length > 0) {
-        resList.innerHTML = data.devices.map(d => `
-          <div class="p-2.5 bg-slate-50 border rounded flex items-center justify-between">
-            <div>
-              <span class="font-bold text-indigo-600">${d.ip}</span>
-              <span class="text-slate-500 ml-2">Порты: ${d.ports.join(', ')} (${d.probable_device})</span>
+        if (data.devices && data.devices.length > 0) {
+          resList.innerHTML = data.devices.map(d => `
+            <div class="p-2.5 bg-slate-50 border rounded-lg flex items-center justify-between">
+              <div>
+                <span class="font-bold text-indigo-600">${d.ip}</span>
+                <span class="text-slate-500 ml-2">Порты: ${d.ports.join(', ')} (${d.probable_device})</span>
+              </div>
+              <button onclick="addFoundCamera('${d.ip}')" class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-xs font-semibold transition">
+                Подключить
+              </button>
             </div>
-            <button onclick="addFoundCamera('${d.ip}')" class="px-2 py-1 bg-indigo-600 text-white rounded text-xs">Подключить</button>
-          </div>
-        `).join('');
-      } else {
-        resList.innerHTML = '<div class="text-slate-500">Устройства с портами RTSP не найдены в этой подсети.</div>';
+          `).join('');
+        } else {
+          resList.innerHTML = '<div class="text-slate-500 p-2">Устройства с портами RTSP не найдены в этой подсети.</div>';
+        }
+      } catch (err) {
+        resList.innerHTML = `<div class="text-rose-600 p-2">Ошибка сканирования: ${err.message}</div>`;
+      }
+    }
+
+    async function uploadCsvCameras() {
+      const fileInput = document.getElementById('csv-file-input');
+      if (!fileInput.files || fileInput.files.length === 0) {
+        alert(currentLang === 'uz' ? 'Iltimos, CSV faylni tanlang' : 'Пожалуйста, выберите CSV-файл для импорта');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+
+      try {
+        const resp = await fetch('/api/v1/cameras/bulk-upload', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+          alert(data.message || 'Камеры успешно импортированы!');
+          loadCameras();
+          switchTab('cameras');
+        } else {
+          alert('Ошибка при импорте CSV: ' + (data.detail || 'Неизвестная ошибка'));
+        }
+      } catch (err) {
+        alert('Ошибка отправки файла: ' + err.message);
       }
     }
 
@@ -615,14 +1612,33 @@
       box.classList.remove('hidden');
       document.getElementById('audio-res-desc').innerText = "Анализируем через Gemini 2.5 Flash...";
 
-      const resp = await fetch('/api/v1/audio/analyze-demo', { method: 'POST' });
-      const data = await resp.json();
-      document.getElementById('audio-res-desc').innerText = `${data.transcript_summary}\nЖалоб: ${data.complaints_detected} шт. Рекомендация: ${data.recommended_fix}`;
+      try {
+        const resp = await fetch('/api/v1/audio/analyze-demo', { method: 'POST' });
+        const data = await resp.json();
+        document.getElementById('audio-res-desc').innerText = `${data.transcript_summary}\nЖалоб: ${data.complaints_detected} шт. Рекомендация: ${data.recommended_fix}`;
+      } catch (err) {
+        document.getElementById('audio-res-desc').innerText = `Ошибка анализа: ${err.message}`;
+      }
     }
 
-    async function runTestSnapshot(camId) {
-      alert(currentLang === 'uz' ? `Kamera #${camId} AI tahlil qilindi!` : `Камера #${camId} успешно проанализирована через AI!`);
+    async function triggerTelegramReport() {
+      try {
+        const resp = await fetch('/api/v1/reports/dispatch-telegram', { method: 'POST' });
+        const data = await resp.json();
+        alert(data.message || (currentLang === 'uz' ? 'Hisobot Telegramga yuborildi!' : 'Отчет успешно отправлен в Telegram!'));
+      } catch (err) {
+        alert('Ошибка отправки: ' + err.message);
+      }
     }
+
+    // Initialize on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      initTrafficChart();
+      refreshAnalytics();
+      loadCameras();
+      updateRtspBuilder();
+    });
   </script>
 </body>
 </html>

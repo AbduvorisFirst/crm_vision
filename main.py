@@ -19,13 +19,15 @@ logger = logging.getLogger("braincam.main")
 def find_available_port(start_port: int = 8000) -> int:
     """Finds first available open port to prevent Errno 10048 conflicts"""
     port = start_port
-    while port < start_port + 20:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            try:
-                s.bind(("0.0.0.0", port))
-                return port
-            except OSError:
-                port += 1
+    while port < start_port + 50:
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s1:
+                s1.bind(("127.0.0.1", port))
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s2:
+                s2.bind(("0.0.0.0", port))
+            return port
+        except OSError:
+            port += 1
     return start_port
 
 async def run_web():

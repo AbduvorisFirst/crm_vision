@@ -32,30 +32,29 @@ def get_onboarding_keyboard(language: str = "ru") -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
 
 def get_main_keyboard(language: str = "ru", days_left: int = 7) -> ReplyKeyboardMarkup:
-    """Main menu keyboard for active merchant"""
+    """Main menu keyboard for active merchant with strictly 3 buttons"""
     url = get_miniapp_url()
     has_https = is_https_enabled()
-    trial_badge = f"({days_left} дн.)" if language == "ru" else f"({days_left} kun)"
-    app_btn_text = "📱 Открыть Dashboard в приложении" if language == "ru" else "📱 Dashboard ilovasini ochish"
-
-    buttons = []
-    if has_https:
-        buttons.append([KeyboardButton(text=app_btn_text, web_app=WebAppInfo(url=url))])
 
     if language == "uz":
-        buttons.extend([
-            [KeyboardButton(text="📊 Kunlik Hisobot"), KeyboardButton(text="📹 Kameralarim")],
-            [KeyboardButton(text="💬 AI bilan suhbat"), KeyboardButton(text="🔍 Kadr/Ovoz AI tahlili")],
-            [KeyboardButton(text=f"💳 To'lov / Obuna {trial_badge}"), KeyboardButton(text="⏰ Hisobot vaqti")],
-            [KeyboardButton(text="⚙️ Sozlamalar"), KeyboardButton(text="🌐 Tilni o'zgartirish")]
-        ])
+        btn1_text = "📊 Bugungi hisobot"
+        btn2_text = "💳 Qolgan muddat va to'lov"
+        btn3_text = "📱 Mini App-ga kirish"
     else:
-        buttons.extend([
-            [KeyboardButton(text="📊 Отчет за сегодня"), KeyboardButton(text="📹 Мои Камеры")],
-            [KeyboardButton(text="💬 Чат с AI консультантом"), KeyboardButton(text="🔍 AI Анализ кадра/аудио")],
-            [KeyboardButton(text=f"💳 Оплата / Тариф {trial_badge}"), KeyboardButton(text="⏰ Время отчета")],
-            [KeyboardButton(text="⚙️ Настройки"), KeyboardButton(text="🌐 Сменить язык")]
-        ])
+        btn1_text = "📊 Отчет за сегодня"
+        btn2_text = "💳 Сколько осталось оплата"
+        btn3_text = "📱 Войти в Mini App"
+
+    if has_https:
+        btn3 = KeyboardButton(text=btn3_text, web_app=WebAppInfo(url=url))
+    else:
+        btn3 = KeyboardButton(text=btn3_text)
+
+    buttons = [
+        [KeyboardButton(text=btn1_text)],
+        [KeyboardButton(text=btn2_text)],
+        [btn3]
+    ]
 
     return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
 
@@ -150,13 +149,47 @@ def get_camera_guide_keyboard(language: str = "ru") -> InlineKeyboardMarkup:
     url = get_miniapp_url()
     has_https = is_https_enabled()
 
-    if has_https:
-        app_btn = InlineKeyboardButton(text="📱 Открыть в Mini App", web_app=WebAppInfo(url=url))
+    if language == "uz":
+        app_btn_text = "📱 Mini App-da ochish" if has_https else "📱 Brauzerda ochish"
     else:
-        app_btn = InlineKeyboardButton(text="📱 Открыть в браузере", url=url)
+        app_btn_text = "📱 Открыть в Mini App" if has_https else "📱 Открыть в браузере"
+
+    if has_https:
+        app_btn = InlineKeyboardButton(text=app_btn_text, web_app=WebAppInfo(url=url))
+    else:
+        app_btn = InlineKeyboardButton(text=app_btn_text, url=url)
 
     buttons = [
         [InlineKeyboardButton(text=text, callback_data="cam:guide")],
         [app_btn]
     ]
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+def get_settings_inline_keyboard(language: str = "ru") -> InlineKeyboardMarkup:
+    """Settings menu inline buttons"""
+    url = get_miniapp_url()
+    has_https = is_https_enabled()
+
+    if language == "uz":
+        buttons = [
+            [
+                InlineKeyboardButton(text="🌐 Tilni o'zgartirish", callback_data="settings:lang"),
+                InlineKeyboardButton(text="⏰ Hisobot vaqti", callback_data="settings:time")
+            ]
+        ]
+        app_btn_text = "📱 Mini App-ni ochish"
+    else:
+        buttons = [
+            [
+                InlineKeyboardButton(text="🌐 Сменить язык", callback_data="settings:lang"),
+                InlineKeyboardButton(text="⏰ Время отчета", callback_data="settings:time")
+            ]
+        ]
+        app_btn_text = "📱 Открыть Mini App"
+
+    if has_https:
+        buttons.append([InlineKeyboardButton(text=app_btn_text, web_app=WebAppInfo(url=url))])
+    else:
+        buttons.append([InlineKeyboardButton(text=app_btn_text, url=url)])
+
     return InlineKeyboardMarkup(inline_keyboard=buttons)
